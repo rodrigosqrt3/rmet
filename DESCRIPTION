@@ -1,0 +1,24 @@
+Package: rmet
+Type: Package
+Title: Download and Read Brazilian Meteorological Data from INMET
+Version: 0.1.0
+Authors@R: person("Rodrigo Fonseca", "Villa", 
+                  email = "rodrigo03.villa@gmail.com",
+                  role = c("aut", "cre"),
+                  comment = c(ORCID = "0009-0005-2938-2270"))
+Description: Automates the download and processing of historical weather 
+    data from the Brazilian National Institute of Meteorology (INMET) 
+    (<https://portal.inmet.gov.br/>). It resolves formatting inconsistencies 
+    in raw CSV files across different years, removes structural artifacts, 
+    standardizes column names, converts timestamps to local Brazilian 
+    time zones, and outputs tidy data frames ready for analysis.
+License: GPL-3
+Depends: R (>= 4.0.0)
+Encoding: UTF-8
+LazyData: true
+Imports: 
+    curl
+RoxygenNote: 7.3.3
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
