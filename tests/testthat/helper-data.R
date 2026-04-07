@@ -31,3 +31,62 @@ create_mock_inmet_data <- function(cache_dir, year = 2020) {
   file.remove(csv_path)
   return(zip_path)
 }
+
+create_mock_inmet_bad_datetime <- function(cache_dir, year = 2020) {
+  if (!dir.exists(cache_dir)) dir.create(cache_dir, recursive = TRUE)
+
+  csv_lines <- c(
+    "REGIAO:;S;",
+    "UF:;RS;",
+    "ESTACAO:;PORTO ALEGRE;",
+    "CODIGO (WMO):;A801;",
+    "LATITUDE:;-30,05;",
+    "LONGITUDE:;-51,16;",
+    "ALTITUDE:;46,97;",
+    "DATA DE FUNDACAO:;2000-09-22;",
+    "Data;Hora UTC;PRECIPITA TOTAL (mm);TEMP BULBO SECO (°C);",
+    "25-09-2020;0000 UTC;0,0;14,7;",
+    "INVALID;XXXX;0,0;14,0;"
+  )
+
+  csv_name <- "bad_datetime.CSV"
+  csv_path <- file.path(tempdir(), csv_name)
+
+  writeLines(csv_lines, csv_path)
+
+  zip_path <- file.path(cache_dir, paste0(year, ".zip"))
+  old_wd <- setwd(tempdir())
+  utils::zip(zipfile = zip_path, files = csv_name)
+  setwd(old_wd)
+
+  file.remove(csv_path)
+  zip_path
+}
+
+create_mock_inmet_allna <- function(cache_dir, year = 2020) {
+  if (!dir.exists(cache_dir)) dir.create(cache_dir, recursive = TRUE)
+  csv_lines <- c(
+    "REGIAO:;S;",
+    "UF:;RS;",
+    "ESTACAO:;PORTO ALEGRE;",
+    "CODIGO (WMO):;A801;",
+    "LATITUDE:;-30,05;",
+    "LONGITUDE:;-51,16;",
+    "ALTITUDE:;46,97;",
+    "DATA DE FUNDACAO:;2000-09-22;",
+    "Data;Hora UTC;PRECIPITA TOTAL (mm);TEMP BULBO SECO (°C);",
+    "2020/09/25;0000 UTC;;;",
+    "2020/09/26;0000 UTC;;;"
+  )
+  csv_name <- "INMET_S_RS_A801_PORTO_ALEGRE_01-01-2020_A_31-12-2020.CSV"
+  csv_path <- file.path(tempdir(), csv_name)
+  con <- file(csv_path, open = "w", encoding = "latin1")
+  writeLines(csv_lines, con)
+  close(con)
+  zip_path <- file.path(cache_dir, paste0(year, ".zip"))
+  old_wd <- setwd(tempdir())
+  utils::zip(zipfile = zip_path, files = csv_name)
+  setwd(old_wd)
+  file.remove(csv_path)
+  zip_path
+}

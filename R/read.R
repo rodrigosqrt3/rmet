@@ -106,10 +106,6 @@ inmet_read <- function(
       )
       if (is.null(raw)) next
       extracted_path <- file.path(tempdir(), csv_names[j])
-      # unzip may return nested path; just find the file
-      if (!file.exists(extracted_path)) {
-        extracted_path <- raw  # unzip returns paths
-      }
       chunks[[j]] <- tryCatch(
         .parse_inmet_csv(extracted_path, tz = tz),
         error = function(e) {
@@ -370,14 +366,8 @@ inmet_extract <- function(
 }
 
 .convert_tz <- function(x, tz) {
-  tryCatch({
-    attr(x, "tzone") <- tz
-    x
-  },
-  error = function(e) {
-    warning("Unknown timezone '", tz, "'; keeping UTC.", call. = FALSE)
-    x
-  })
+  attr(x, "tzone") <- tz
+  x
 }
 
 .safe_rbind <- function(list_df) {

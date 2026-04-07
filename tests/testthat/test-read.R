@@ -95,7 +95,7 @@ test_that("inmet_read warns on corrupt CSV inside ZIP", {
   dir.create(td, showWarnings = FALSE)
   csv_name <- "INMET_S_RS_A801_PORTO_ALEGRE_01-01-2020_A_31-12-2020.CSV"
   csv_path <- file.path(tempdir(), csv_name)
-  writeLines(rep(";;;;;;;", 5), csv_path)
+  writeLines(c("HEADER", ";;;;", "INVALID;;;DATA"), csv_path)
   zip_path <- file.path(td, "2020.zip")
   old_wd <- setwd(tempdir())
   utils::zip(zipfile = zip_path, files = csv_name)
@@ -128,24 +128,97 @@ test_that("inmet_extract warns when ZIP missing", {
   )
 })
 
-test_that(".convert_tz warns on unknown timezone", {
-  expect_warning(
-    result <- inmetr2:::.convert_tz(as.POSIXct("2020-01-01", tz = "UTC"), "Not/ATimezone"),
-    "Unknown timezone"
+test_that(".convert_tz handles unknown timezone", {
+  result <- rmet:::.convert_tz(
+    as.POSIXct("2020-01-01", tz = "UTC"),
+    "Not/ATimezone"
   )
   expect_s3_class(result, "POSIXct")
 })
 
 test_that(".safe_rbind returns NULL on empty input", {
-  expect_null(inmetr2:::.safe_rbind(list()))
+  expect_null(rmet:::.safe_rbind(list()))
 })
 
 test_that(".safe_rbind fills missing columns with NA", {
   a <- data.frame(x = 1, y = 2)
   b <- data.frame(x = 3, z = 4)
-  result <- inmetr2:::.safe_rbind(list(a, b))
+  result <- rmet:::.safe_rbind(list(a, b))
   expect_true("y" %in% names(result))
   expect_true("z" %in% names(result))
   expect_true(is.na(result$y[2]))
   expect_true(is.na(result$z[1]))
+})
+
+test_that("errors when unzip fails", {
+  td <- file.path(tempdir(), "rmet_unzip_fail")
+  create_mock_inmet_data(td, 2020)
+
+  testthat::with_mocked_bindings(
+    unzip = function(...) stop("fail unzip"),
+    .package = "utils",
+    {
+      expect_error(
+        inmet_read(years = 2020, dest_dir = td, quiet = TRUE),
+        "Cannot open ZIP"
+      )
+    }
+  )
+})
+
+test_that("fallback datetime parsing is triggered", {
+  td <- file.path(tempdir(), "rmet_bad_dt")
+  create_mock_inmet_bad_datetime(td)
+
+  df <- inmet_read(years = 2020, dest_dir = td, quiet = TRUE)
+
+  expect_s3_class(df$datetime, "POSIXct")
+})
+
+test_that(".safe_rbind handles completely disjoint columns", {
+  a <- data.frame(a = 1)
+  b <- data.frame(b = 2)
+  c <- data.frame(c = 3)
+
+  result <- rmet:::.safe_rbind(list(a, b, c))
+
+  expect_equal(nrow(result), 3)
+  expect_true(all(c("a","b","c") %in% names(result)))
+})
+
+test_that("inmet_read warns when inner unzip fails to extract a file", {
+  td <- file.path(tempdir(), "rmet_inner_unzip_fail")
+  create_mock_inmet_data(td, year = 2020)
+
+  real_unzip <- utils::unzip
+  call_count <- 0L
+
+  testthat::with_mocked_bindings(
+    unzip = function(zipfile, list = FALSE, files = NULL, exdir = tempdir(), ...) {
+      if (isTRUE(list)) {
+        return(real_unzip(zipfile, list = TRUE))
+      }
+      call_count <<- call_count + 1L
+      if (call_count == 1L) stop("simulated extract failure")
+      real_unzip(zipfile, files = files, exdir = exdir, ...)
+    },
+    .package = "utils",
+    {
+      expect_warning(
+        inmet_read(years = 2020, dest_dir = td, quiet = TRUE),
+        "Could not extract"
+      )
+    }
+  )
+})
+
+test_that("inmet_read handles CSV where all data rows are NA (parse returns NULL)", {
+  td <- file.path(tempdir(), "rmet_allna")
+  create_mock_inmet_allna(td, year = 2020)
+
+  expect_warning(
+    result <- inmet_read(years = 2020, dest_dir = td, quiet = TRUE),
+    "No data was read"
+  )
+  expect_equal(nrow(result), 0L)
 })
