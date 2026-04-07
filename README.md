@@ -28,7 +28,7 @@ library(rmet)
 stations <- inmet_stations(state = "RS")
 head(stations)
 
-# Download annual ZIP archives (resumable — safe to re-run)
+# Download annual ZIP archives (resumable)
 inmet_download(2022:2024)
 
 # Read into R, optionally filtering by date, station, and variable
