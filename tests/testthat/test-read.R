@@ -98,8 +98,8 @@ test_that("inmet_read warns on corrupt CSV inside ZIP", {
   writeLines(c("HEADER", ";;;;", "INVALID;;;DATA"), csv_path)
   zip_path <- file.path(td, "2020.zip")
   old_wd <- setwd(tempdir())
+  on.exit(setwd(old_wd), add = TRUE)
   utils::zip(zipfile = zip_path, files = csv_name)
-  setwd(old_wd)
   file.remove(csv_path)
   expect_warning(
     result <- inmet_read(years = 2020, dest_dir = td, quiet = TRUE)
