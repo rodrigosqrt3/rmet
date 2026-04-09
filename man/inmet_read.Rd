@@ -59,19 +59,13 @@ what is returned, e.g.:
 
 \examples{
 \donttest{
-# Download then read year 2023, Brasília station only
-inmet_download(2023, dest_dir = tempdir())
-df <- inmet_read(2023, stations = "A001", dest_dir = tempdir())
-head(df)
-
-# Read multiple years, temperature and precipitation only
 df <- inmet_read(
-  2020:2023,
-  variables = c("temp_dry_c", "precip_mm"),
-  dest_dir  = "~/inmet_data"
+  years = 2000,
+  stations = "A801",
+  dest_dir = tempdir()
 )
+head(df)
 }
-
 }
 \seealso{
 [inmet_download()], [inmet_stations()]
