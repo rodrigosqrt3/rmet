@@ -7,11 +7,11 @@ Authors@R: person("Rodrigo Fonseca", "Villa",
                   role = c("aut", "cre"),
                   comment = c(ORCID = "0009-0005-2938-2270"))
 Description: Automates the download and processing of historical weather 
-    data from the Brazilian National Institute of Meteorology (INMET) 
-    (<https://portal.inmet.gov.br/>). It resolves formatting inconsistencies 
-    in raw CSV files across different years, removes structural artifacts, 
-    standardizes column names, converts timestamps to local Brazilian 
-    time zones, and outputs tidy data frames ready for analysis.
+    data from the Brazilian National Institute of Meteorology (INMET). 
+    It resolves formatting inconsistencies in raw CSV files across different 
+    years, removes structural artifacts, standardizes column names, converts 
+    timestamps to local Brazilian time zones, and outputs tidy data frames 
+    ready for analysis.
 License: GPL-3
 Depends: R (>= 4.0.0)
 Encoding: UTF-8
@@ -21,6 +21,7 @@ Imports:
     curl
 RoxygenNote: 7.3.3
 Suggests:
+    spelling,
     testthat (>= 3.0.0),
     knitr,
     rmarkdown
