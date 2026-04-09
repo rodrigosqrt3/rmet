@@ -1,7 +1,6 @@
 # rmet
 
 [![R-CMD-check](https://github.com/rodrigosqrt3/rmet/actions/workflows/r.yaml/badge.svg)](https://github.com/rodrigosqrt3/rmet/actions/workflows/r.yaml)
-
 [![codecov](https://codecov.io/gh/rodrigosqrt3/rmet/branch/main/graph/badge.svg)](https://codecov.io/gh/rodrigosqrt3/rmet)
 
 rmet automates the download and processing of historical hourly weather data
