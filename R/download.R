@@ -35,13 +35,8 @@
 #'
 #' @examples
 #' \donttest{
-#' path  <- inmet_download(2023, dest_dir = tempdir())
-#' paths <- inmet_download(2020:2023, dest_dir = tempdir())
+#' paths <- inmet_download(years = 2000, dest_dir = tempdir())
 #' }
-#'
-#' # Download multiple years
-#' paths <- inmet_download(2020:2023, dest_dir = "~/inmet_data")
-#'
 #' @seealso [inmet_read()], [inmet_extract()]
 #' @export
 inmet_download <- function(
