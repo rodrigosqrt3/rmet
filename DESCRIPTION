@@ -12,14 +12,17 @@ Description: Automates the download and processing of historical weather
     years, removes structural artifacts, standardizes column names, converts 
     timestamps to local Brazilian time zones, and outputs tidy data frames 
     ready for analysis.
-License: GPL-3
 Depends: R (>= 4.0.0)
 Encoding: UTF-8
 LazyData: true
 Language: en-US
+License: GPL (>= 3)
+URL: https://github.com/rodrigosqrt3/rmet
+BugReports: https://github.com/rodrigosqrt3/rmet/issues
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
 Imports: 
     curl
-RoxygenNote: 7.3.3
 Suggests:
     spelling,
     testthat (>= 3.0.0),

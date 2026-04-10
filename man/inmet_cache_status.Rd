@@ -7,12 +7,12 @@
 inmet_cache_status(dest_dir = tools::R_user_dir("rmet", "cache"))
 }
 \arguments{
-\item{dest_dir}{Character. Cache directory (same as [inmet_download()]).}
+\item{dest_dir}{Character. Cache directory (same as \code{\link[=inmet_download]{inmet_download()}}).}
 }
 \value{
-A `data.frame` with columns `year` (integer), `path` (character),
-  `size_mb` (numeric), and `valid` (logical, whether the ZIP passes
-  integrity check).
+A \code{data.frame} with columns \code{year} (integer), \code{path} (character),
+\code{size_mb} (numeric), and \code{valid} (logical, whether the ZIP passes
+integrity check).
 }
 \description{
 Convenience function that scans the cache directory and reports which

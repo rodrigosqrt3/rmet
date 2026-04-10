@@ -15,14 +15,14 @@ inmet_extract(
 \arguments{
 \item{years}{Integer vector of years to extract.}
 
-\item{dest_dir}{Character. Directory of ZIP files (same as [inmet_download()]).}
+\item{dest_dir}{Character. Directory of ZIP files (same as \code{\link[=inmet_download]{inmet_download()}}).}
 
 \item{out_dir}{Character. Directory where CSVs will be written. Defaults to
-a subdirectory `csv/` inside `dest_dir`.}
+a subdirectory \verb{csv/} inside \code{dest_dir}.}
 
-\item{overwrite}{Logical. Overwrite existing CSVs? Defaults to `FALSE`.}
+\item{overwrite}{Logical. Overwrite existing CSVs? Defaults to \code{FALSE}.}
 
-\item{quiet}{Logical. Suppress messages. Defaults to `FALSE`.}
+\item{quiet}{Logical. Suppress messages. Defaults to \code{FALSE}.}
 }
 \value{
 Invisible character vector of paths to all extracted CSV files.

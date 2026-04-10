@@ -336,6 +336,4 @@ The table below lists all meteorological columns returned by `inmet_read()`.
 
 ## Data source
 
-All data are provided by INMET and are freely available at
-<https://portal.inmet.gov.br/>. The package does not redistribute raw data; it
-only automates retrieval and parsing of files hosted by INMET.
+All data are provided by INMET and are freely available. The package does not redistribute raw data; it only automates retrieval and parsing of files hosted by INMET.

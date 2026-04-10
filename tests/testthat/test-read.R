@@ -82,10 +82,13 @@ test_that("inmet_read warns when date filter removes all rows", {
 test_that("inmet_read warns when station filter matches nothing", {
   td <- file.path(tempdir(), "rmet_read_nostation")
   create_mock_inmet_data(td, year = 2020)
+
   expect_warning(
-    result <- inmet_read(years = 2020, dest_dir = td,
-                         stations = "ZZZZ", quiet = TRUE),
-    "No data was read"
+    expect_warning(
+      result <- inmet_read(years = 2020, dest_dir = td, stations = "ZZZZ", quiet = TRUE),
+      "No data was read"
+    ),
+    "No matching stations found"
   )
   expect_equal(nrow(result), 0L)
 })
@@ -101,8 +104,13 @@ test_that("inmet_read warns on corrupt CSV inside ZIP", {
   on.exit(setwd(old_wd), add = TRUE)
   utils::zip(zipfile = zip_path, files = csv_name)
   file.remove(csv_path)
+
   expect_warning(
-    result <- inmet_read(years = 2020, dest_dir = td, quiet = TRUE)
+    expect_warning(
+      result <- inmet_read(years = 2020, dest_dir = td, quiet = TRUE),
+      "No data was read"
+    ),
+    "Could not parse"
   )
 })
 
@@ -129,9 +137,13 @@ test_that("inmet_extract warns when ZIP missing", {
 })
 
 test_that(".convert_tz handles unknown timezone", {
-  result <- rmet:::.convert_tz(
-    as.POSIXct("2020-01-01", tz = "UTC"),
-    "Not/ATimezone"
+
+  expect_warning(
+    result <- rmet:::.convert_tz(
+      as.POSIXct("2020-01-01", tz = "UTC"),
+      "Not/ATimezone"
+    ),
+    "Unknown timezone"
   )
   expect_s3_class(result, "POSIXct")
 })
@@ -205,7 +217,10 @@ test_that("inmet_read warns when inner unzip fails to extract a file", {
     .package = "utils",
     {
       expect_warning(
-        inmet_read(years = 2020, dest_dir = td, quiet = TRUE),
+        expect_warning(
+          inmet_read(years = 2020, dest_dir = td, quiet = TRUE),
+          "No data was read"
+        ),
         "Could not extract"
       )
     }

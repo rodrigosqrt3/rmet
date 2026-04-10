@@ -1,9 +1,9 @@
 #' Download INMET historical data ZIPs with resume support
 #'
-#' Downloads one or more annual ZIP files from INMET's historical data portal
-#' (`<https://portal.inmet.gov.br/dadoshistoricos>`). Downloads are resumable:
-#' if a partial file is already on disk (e.g., from a previous interrupted
-#' session), the function picks up where it left off instead of restarting.
+#' Downloads one or more annual ZIP files from INMET's historical data portal.
+#' Downloads are resumable: if a partial file is already on disk (e.g., from a
+#' previous interrupted session), the function picks up where it left off
+#' instead of restarting.
 #'
 #' @param years Integer vector of years to download. Available years start from
 #'   2000. Defaults to the current year.

@@ -6,24 +6,33 @@
 \alias{rmet-package}
 \title{rmet: Access Historical Weather Data from INMET}
 \description{
-The `rmet` package provides tools to download, cache, and parse
+The \code{rmet} package provides tools to download, cache, and parse
 historical hourly weather data from Brazil's National Institute of
 Meteorology (INMET).
-
-## Main functions
-
-* [inmet_download()] — Download annual ZIP files with resume support.
-* [inmet_read()] — Parse downloaded ZIPs into a tidy `data.frame`.
-* [inmet_extract()] — Unzip CSVs to a directory.
-* [inmet_stations()] — Browse the bundled station catalogue.
+\subsection{Main functions}{
+\itemize{
+\item \code{\link[=inmet_download]{inmet_download()}} — Download annual ZIP files with resume support.
+\item \code{\link[=inmet_read]{inmet_read()}} — Parse downloaded ZIPs into a tidy \code{data.frame}.
+\item \code{\link[=inmet_extract]{inmet_extract()}} — Unzip CSVs to a directory.
+\item \code{\link[=inmet_stations]{inmet_stations()}} — Browse the bundled station catalogue.
+}
+}
 }
 \section{Data source}{
 
 Data is retrieved from
-`<https://portal.inmet.gov.br/dadoshistoricos>`. Please consult INMET's
+"portal.inmet.gov.br/dadoshistoricos". Please consult INMET's
 terms of use before redistributing the raw data.
 }
 
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/rodrigosqrt3/rmet}
+  \item Report bugs at \url{https://github.com/rodrigosqrt3/rmet/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Rodrigo Fonseca Villa \email{rodrigo03.villa@gmail.com} (\href{https://orcid.org/0009-0005-2938-2270}{ORCID})
 

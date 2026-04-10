@@ -6,5 +6,4 @@
 #' @format A data frame with columns as returned by \code{inmet_read()}.
 #'   See \code{?inmet_read} for the full variable reference.
 #' @source INMET -- Instituto Nacional de Meteorologia
-#'   \url{https://portal.inmet.gov.br/}
 "rmet_example"

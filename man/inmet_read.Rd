@@ -17,44 +17,44 @@ inmet_read(
 }
 \arguments{
 \item{years}{Integer vector of years to read. Each year must have a
-corresponding ZIP file in `dest_dir` (downloaded with [inmet_download()]).}
+corresponding ZIP file in \code{dest_dir} (downloaded with \code{\link[=inmet_download]{inmet_download()}}).}
 
-\item{stations}{Character vector of station codes (e.g., `"A001"`,
-`"A652"`). If `NULL` (default), all stations are returned.}
+\item{stations}{Character vector of station codes (e.g., \code{"A001"},
+\code{"A652"}). If \code{NULL} (default), all stations are returned.}
 
 \item{dest_dir}{Character. Directory containing the ZIP files. Defaults to
-the same cache directory used by [inmet_download()].}
+the same cache directory used by \code{\link[=inmet_download]{inmet_download()}}.}
 
-\item{tz}{Character. Time zone for the `datetime` column. INMET data uses
-UTC-3 (Brasília standard time). Defaults to `"America/Sao_Paulo"`.}
+\item{tz}{Character. Time zone for the \code{datetime} column. INMET data uses
+UTC-3 (Brasília standard time). Defaults to \code{"America/Sao_Paulo"}.}
 
-\item{variables}{Character vector of variable names to keep. If `NULL`
-(default), all variables are returned. See **Variables** section below.}
+\item{variables}{Character vector of variable names to keep. If \code{NULL}
+(default), all variables are returned. See \strong{Variables} section below.}
 
-\item{start_date}{Character. Optional start date in `"YYYY-MM-DD"` format.}
+\item{start_date}{Character. Optional start date in \code{"YYYY-MM-DD"} format.}
 
-\item{end_date}{Character. Optional end date in `"YYYY-MM-DD"` format.}
+\item{end_date}{Character. Optional end date in \code{"YYYY-MM-DD"} format.}
 
-\item{quiet}{Logical. Suppress progress messages. Defaults to `FALSE`.}
+\item{quiet}{Logical. Suppress progress messages. Defaults to \code{FALSE}.}
 }
 \value{
 A \code{data.frame} containing the parsed INMET data.
-  Columns include station identifiers (\code{station_code}, \code{region},
-  \code{state}, \code{latitude}, \code{longitude}, \code{elevation}),
-  a \code{POSIXct} \code{datetime} column, and various meteorological
-  measurements (temperature, precipitation, pressure, humidity, wind, and radiation).
-  Returns an empty \code{data.frame} if no data is found.
+Columns include station identifiers (\code{station_code}, \code{region},
+\code{state}, \code{latitude}, \code{longitude}, \code{elevation}),
+a \code{POSIXct} \code{datetime} column, and various meteorological
+measurements (temperature, precipitation, pressure, humidity, wind, and radiation).
+Returns an empty \code{data.frame} if no data is found.
 }
 \description{
 Parses the CSV files inside INMET annual ZIP archives and returns a single
-tidy `data.frame` with consistent column names, correct data types, and a
-proper `POSIXct` timestamp column.
+tidy \code{data.frame} with consistent column names, correct data types, and a
+proper \code{POSIXct} timestamp column.
 }
 \section{Variables}{
 
-You can pass a subset of the output column names to `variables` to limit
+You can pass a subset of the output column names to \code{variables} to limit
 what is returned, e.g.:
-`variables = c("temp_dry_c", "precip_mm", "humid_rel_pct")`.
+\code{variables = c("temp_dry_c", "precip_mm", "humid_rel_pct")}.
 }
 
 \examples{
@@ -68,5 +68,5 @@ head(df)
 }
 }
 \seealso{
-[inmet_download()], [inmet_stations()]
+\code{\link[=inmet_download]{inmet_download()}}, \code{\link[=inmet_stations]{inmet_stations()}}
 }

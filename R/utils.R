@@ -14,7 +14,7 @@
 #'
 #' @section Data source:
 #' Data is retrieved from
-#' `<https://portal.inmet.gov.br/dadoshistoricos>`. Please consult INMET's
+#' "portal.inmet.gov.br/dadoshistoricos". Please consult INMET's
 #' terms of use before redistributing the raw data.
 #'
 #' @keywords internal

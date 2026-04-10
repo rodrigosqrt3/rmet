@@ -11,15 +11,15 @@ inmet_cache_clear(
 )
 }
 \arguments{
-\item{years}{Integer vector of years to remove, or `NULL` to remove all.}
+\item{years}{Integer vector of years to remove, or \code{NULL} to remove all.}
 
 \item{dest_dir}{Character. Cache directory.}
 
-\item{ask}{Logical. If `TRUE` (default in interactive sessions), prompt
+\item{ask}{Logical. If \code{TRUE} (default in interactive sessions), prompt
 before deleting.}
 }
 \value{
-Invisible `NULL`.
+Invisible \code{NULL}.
 }
 \description{
 Deletes downloaded ZIP files from the cache directory.
