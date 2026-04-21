@@ -124,12 +124,7 @@ col_max  <- "#E74C3C"
 col_min  <- "#3498DB"
 col_band <- "#F1948A"
 
-par(
-  mar     = c(4, 4.5, 3, 1),
-  family  = "sans",
-  cex.lab = 0.95,
-  cex.axis = 0.85
-)
+oldpar <- par(mar = c(4, 4.5, 3, 1), family = "sans", cex.lab = 0.95, cex.axis = 0.85)
 
 plot(
   daily$date, daily$temp_max,
@@ -141,7 +136,6 @@ plot(
   axes = FALSE
 )
 
-# shaded band between min and max
 polygon(
   c(daily$date, rev(daily$date)),
   c(daily$temp_max, rev(daily$temp_min)),
@@ -167,6 +161,8 @@ legend(
   bty    = "n",
   cex    = 0.85
 )
+
+par(oldpar)
 ```
 
 ### Precipitation
@@ -174,7 +170,7 @@ legend(
 ```{r plot-precip, fig.cap = "Daily accumulated precipitation at Porto Alegre (A801) — 2023."}
 col_prec <- "#3498DB"
 
-par(mar = c(4, 4.5, 3, 1), family = "sans", cex.lab = 0.95, cex.axis = 0.85)
+oldpar <- par(mar = c(4, 4.5, 3, 1), family = "sans", cex.lab = 0.95, cex.axis = 0.85)
 
 barplot(
   daily$precip,
@@ -197,6 +193,8 @@ axis(1,
      tick   = FALSE)
 
 box(col = "grey80")
+
+par(oldpar)
 ```
 
 ### Monthly temperature boxplots
@@ -208,7 +206,7 @@ df$month <- as.integer(format(df$datetime, "%m"))
 month_labels <- c("Jan","Feb","Mar","Apr","May","Jun",
                   "Jul","Aug","Sep","Oct","Nov","Dec")
 
-par(mar = c(4, 4.5, 3, 1), family = "sans", cex.lab = 0.95, cex.axis = 0.85)
+oldpar <- par(mar = c(4, 4.5, 3, 1), family = "sans", cex.lab = 0.95, cex.axis = 0.85)
 
 boxplot(
   temp_dry_c ~ month,
@@ -228,6 +226,8 @@ boxplot(
 axis(1, at = 1:12, labels = month_labels, las = 1)
 axis(2, las = 1)
 box(col = "grey80")
+
+par(oldpar)
 ```
 
 ### Wind speed distribution
@@ -237,7 +237,7 @@ col_wind <- "#2C3E50"
 
 ws <- df$wind_speed_ms[!is.na(df$wind_speed_ms) & df$wind_speed_ms >= 0]
 
-par(mar = c(4, 4.5, 3, 1), family = "sans", cex.lab = 0.95, cex.axis = 0.85)
+oldpar <- par(mar = c(4, 4.5, 3, 1), family = "sans", cex.lab = 0.95, cex.axis = 0.85)
 
 h <- hist(ws, breaks = 30, plot = FALSE)
 
@@ -265,6 +265,8 @@ legend("topright",
        lty    = 2,
        bty    = "n",
        cex    = 0.85)
+
+par(oldpar)
 ```
 
 ## Filtering and subsetting

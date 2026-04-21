@@ -1,7 +1,9 @@
 # rmet
 
-[![R-CMD-check](https://github.com/rodrigosqrt3/rmet/actions/workflows/r.yml/badge.svg)](https://github.com/rodrigosqrt3/rmet/actions/workflows/r.yml)
+[![CRAN status](https://www.r-pkg.org/badges/version/rmet)](https://CRAN.R-project.org/package=rmet)
+[![R-CMD-check](https://github.com/rodrigosqrt3/rmet/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/rodrigosqrt3/rmet/actions/workflows/R-CMD-check.yaml)
 [![codecov](https://codecov.io/gh/rodrigosqrt3/rmet/branch/main/graph/badge.svg)](https://codecov.io/gh/rodrigosqrt3/rmet)
+
 
 rmet automates the download and processing of historical hourly weather data
 from Brazil's National Institute of Meteorology
