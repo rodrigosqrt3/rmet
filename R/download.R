@@ -1,153 +1,177 @@
-#' Download INMET historical data ZIPs with resume support
+#' Download INMET historical data archives
 #'
 #' Downloads one or more annual ZIP files from INMET's historical data portal.
-#' Downloads are resumable: if a partial file is already on disk (e.g., from a
-#' previous interrupted session), the function picks up where it left off
-#' instead of restarting.
+#' Complete archives already in the cache are reused. Interrupted downloads are
+#' kept in a `.part` file and resumed on the next attempt.
 #'
-#' @param years Integer vector of years to download. Available years start from
+#' @param years Integer vector of years to download. Available years start in
 #'   2000. Defaults to the current year.
-#' @param dest_dir Character. Directory where ZIP files will be saved.
-#'   Created automatically if it does not exist. Defaults to a persistent
-#'   cache directory under `tools::R_user_dir("rmet", "cache")`.
-#' @param max_tries Integer. Maximum number of download attempts per year
-#'   before giving up. Defaults to `15`.
-#' @param quiet Logical. If `TRUE`, suppresses progress messages.
-#'   Defaults to `FALSE`.
-#' @param force Logical. If `TRUE`, deletes any existing (possibly partial)
-#'   ZIP before downloading. Defaults to `FALSE`.
+#' @param dest_dir Character. Cache directory. It is created when necessary.
+#' @param max_tries Positive integer. Maximum attempts per year.
+#' @param quiet Logical. Suppress progress messages.
+#' @param force Logical. Download again even when a valid archive is cached.
 #'
-#' @return Invisibly returns a named character vector (class `character`) of
-#'   local file paths to the downloaded ZIP files. Names correspond to the
-#'   requested years (e.g., `"2023"`). Years that failed to download are
-#'   excluded. If all downloads fail, an empty named character vector is
-#'   returned.
+#' @return Invisibly, a named character vector containing the paths of all
+#'   successfully downloaded archives.
 #'
 #' @details
-#' INMET's server sometimes drops connections mid-transfer. The function
-#' handles this by using `curl`'s `CURLOPT_RESUME_FROM` to append to the
-#' partial file on each retry, then validates the result with
-#' [utils::unzip()]. A `Sys.sleep(5)` back-off separates retries.
-#'
-#' ZIP files are **not** extracted by this function. Use [inmet_read()] to
-#' parse the contents directly from the ZIP, or [inmet_extract()] to unzip
-#' to a directory.
+#' Files are first written to `<year>.zip.part`. A partial file is never exposed
+#' as a complete ZIP. After an integrity check succeeds, the file is atomically
+#' moved to `<year>.zip` whenever the operating system permits it.
 #'
 #' @examples
 #' \donttest{
-#' paths <- inmet_download(years = 2000, dest_dir = tempdir())
+#' paths <- inmet_download(2023, dest_dir = tempdir())
 #' }
-#' @seealso [inmet_read()], [inmet_extract()]
+#' @seealso [inmet_read()], [inmet_get()], [inmet_extract()]
 #' @export
 inmet_download <- function(
-    years    = as.integer(format(Sys.Date(), "%Y")),
+    years = as.integer(format(Sys.Date(), "%Y")),
     dest_dir = tools::R_user_dir("rmet", "cache"),
     max_tries = 15L,
-    quiet    = FALSE,
-    force    = FALSE
+    quiet = FALSE,
+    force = FALSE
 ) {
-  # ---- input validation -------------------------------------------------------
-  years <- as.integer(years)
-  if (any(is.na(years))) stop("`years` must be a vector of integers.", call. = FALSE)
-  if (any(years < 2000L)) stop("INMET data is only available from 2000 onwards.", call. = FALSE)
-  if (any(years > as.integer(format(Sys.Date(), "%Y")))) {
-    stop("Cannot request years in the future.", call. = FALSE)
+  years <- .validate_years(years)
+  dest_dir <- .validate_directory(dest_dir, "dest_dir")
+  max_tries <- .validate_positive_integer(max_tries, "max_tries")
+  quiet <- .validate_flag(quiet, "quiet")
+  force <- .validate_flag(force, "force")
+
+  if (!dir.exists(dest_dir) &&
+      !dir.create(dest_dir, recursive = TRUE, showWarnings = FALSE)) {
+    stop("Could not create `dest_dir`: ", dest_dir, call. = FALSE)
   }
-  max_tries <- as.integer(max_tries)
-  if (length(max_tries) != 1L || is.na(max_tries) || max_tries < 1L) {
-    stop("`max_tries` must be a positive integer.", call. = FALSE)
-  }
 
-  if (!dir.exists(dest_dir)) dir.create(dest_dir, recursive = TRUE)
+  results <- character()
 
-  results <- character(0)
-
-  for (yr in years) {
+  for (yr in unique(years)) {
     path <- file.path(dest_dir, paste0(yr, ".zip"))
+    part <- paste0(path, ".part")
 
-    if (force && file.exists(path)) {
-      if (!quiet) message("Removing existing file: ", path)
+    if (force) {
+      existing <- c(path, part)
+      existing <- existing[file.exists(existing)]
+      if (length(existing) && !quiet) {
+        message("Removing existing file(s) for ", yr, ".")
+      }
+      if (length(existing) && any(!file.remove(existing))) {
+        warning("Could not remove every existing file for ", yr, ".", call. = FALSE)
+        next
+      }
+    }
+
+    if (.is_valid_zip(path)) {
+      if (!quiet) message("Year ", yr, " already cached and valid.")
+      results[as.character(yr)] <- path
+      next
+    }
+
+    # Preserve invalid/partial files created by rmet <= 0.1.0.
+    if (file.exists(path) && !file.exists(part)) {
+      file.rename(path, part)
+    } else if (file.exists(path)) {
       file.remove(path)
     }
 
-    ok <- .download_one_year(yr, destfile = path, max_tries = max_tries, quiet = quiet)
+    ok <- .download_one_year(
+      year = yr,
+      destfile = path,
+      partfile = part,
+      max_tries = max_tries,
+      quiet = quiet
+    )
     if (ok) results[as.character(yr)] <- path
   }
 
   invisible(results)
 }
 
-
-# ------------------------------------------------------------------------------
-# Internal: download (with resume) a single year
-# ------------------------------------------------------------------------------
-.download_one_year <- function(year, destfile, max_tries, quiet) {
+.download_one_year <- function(year, destfile, partfile, max_tries, quiet) {
   url <- paste0(
     "https://portal.inmet.gov.br/uploads/dadoshistoricos/",
-    year, ".zip"
+    year,
+    ".zip"
   )
 
-  for (i in seq_len(max_tries)) {
-    already <- if (file.exists(destfile)) file.size(destfile) else 0L
+  if (.is_valid_zip(partfile)) {
+    return(.finalize_download(partfile, destfile, year, quiet))
+  }
 
-    h <- curl::new_handle()
+  for (attempt in seq_len(max_tries)) {
+    already <- if (file.exists(partfile)) file.size(partfile) else 0
+    if (is.na(already)) already <- 0
+
+    handle <- curl::new_handle()
     curl::handle_setopt(
-      h,
-      useragent      = paste0(
-        "Mozilla/5.0 (compatible; rmet/0.1.0; ",
-        "+https://github.com/yourgh/rmet)"
-      ),
-      referer        = "https://portal.inmet.gov.br/dadoshistoricos",
-      resume_from    = already,
+      handle,
+      useragent = .rmet_user_agent(),
+      referer = "https://portal.inmet.gov.br/dadoshistoricos",
+      resume_from = already,
       connecttimeout = 30L,
-      low_speed_limit = 1000L,   # bytes/s
-      low_speed_time  = 30L      # abort if below limit for 30 s
+      timeout = 600L,
+      low_speed_limit = 1000L,
+      low_speed_time = 30L,
+      followlocation = TRUE,
+      failonerror = TRUE
     )
 
-    con <- file(destfile, open = "ab")
+    error_message <- NULL
+    con <- file(partfile, open = "ab")
     tryCatch(
-      curl::curl_fetch_stream(url, fun = function(bytes) writeBin(bytes, con), handle = h),
+      curl::curl_fetch_stream(
+        url,
+        fun = function(bytes) writeBin(bytes, con),
+        handle = handle
+      ),
       error = function(e) {
-        if (!quiet) message("  Connection dropped: ", conditionMessage(e))
-      }
+        error_message <<- conditionMessage(e)
+      },
+      finally = close(con)
     )
-    close(con)
 
-    size <- file.size(destfile)
-    if (!quiet) message(sprintf("  Total on disk: %.1f MB", size / 1e6))
-
-    test <- tryCatch(utils::unzip(destfile, list = TRUE), error = function(e) data.frame(Name = character(0)))
-    n_files_in_zip <- nrow(test)
-
-    if (n_files_in_zip > 0L) {
-      if (!quiet) {
-        message(sprintf(
-          "  Year %d OK - ZIP valid, %d station files.",
-          year, n_files_in_zip
-        ))
-      }
-      return(TRUE)
+    if (!is.null(error_message) && !quiet) {
+      message("  Attempt ", attempt, " failed: ", error_message)
     }
 
-    if (i < max_tries) Sys.sleep(5)
+    size <- if (file.exists(partfile)) file.size(partfile) else 0
+    if (!quiet) message(sprintf("  Total on disk: %.1f MB", size / 1e6))
+
+    if (.is_valid_zip(partfile)) {
+      return(.finalize_download(partfile, destfile, year, quiet))
+    }
+
+    # Some servers reject byte-range requests. Restart cleanly in that case.
+    if (!is.null(error_message) &&
+        grepl("range|resume|416", error_message, ignore.case = TRUE) &&
+        file.exists(partfile)) {
+      file.remove(partfile)
+    }
+
+    if (attempt < max_tries) Sys.sleep(min(5, attempt))
   }
 
   warning(
-    sprintf("Failed to download year %d after %d attempts.", year, max_tries),
+    sprintf("Failed to download year %d after %d attempt(s).", year, max_tries),
     call. = FALSE
   )
   FALSE
 }
 
-.safe_rbind <- function(list_df) {
-  if (length(list_df) == 0L) return(NULL)
-  all_cols <- unique(unlist(lapply(list_df, names)))
-  list_df <- lapply(list_df, function(d) {
-    missing_cols <- setdiff(all_cols, names(d))
-    if (length(missing_cols) > 0L) {
-      d[missing_cols] <- NA
-    }
-    d[all_cols]
-  })
-  do.call(rbind, list_df)
+.finalize_download <- function(partfile, destfile, year, quiet) {
+  if (file.exists(destfile)) file.remove(destfile)
+  moved <- file.rename(partfile, destfile)
+  if (!moved) {
+    moved <- file.copy(partfile, destfile, overwrite = TRUE)
+    if (moved) file.remove(partfile)
+  }
+  if (!moved || !.is_valid_zip(destfile)) {
+    warning("Downloaded archive could not be finalized for year ", year, ".", call. = FALSE)
+    return(FALSE)
+  }
+  if (!quiet) {
+    entries <- utils::unzip(destfile, list = TRUE)
+    message("  Year ", year, " OK - ", nrow(entries), " file(s) in archive.")
+  }
+  TRUE
 }
