@@ -1,7 +1,7 @@
 # rmet
 
 [![CRAN status](https://www.r-pkg.org/badges/version/rmet)](https://CRAN.R-project.org/package=rmet)
-[![R-CMD-check](https://github.com/rodrigosqrt3/rmet/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/rodrigosqrt3/rmet/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/rodrigosqrt3/rmet/actions/workflows/r.yml/badge.svg)](https://github.com/rodrigosqrt3/rmet/actions/workflows/r.yml)
 [![codecov](https://codecov.io/gh/rodrigosqrt3/rmet/branch/main/graph/badge.svg)](https://app.codecov.io/gh/rodrigosqrt3/rmet)
 
 `rmet` downloads and parses historical hourly weather data published by
