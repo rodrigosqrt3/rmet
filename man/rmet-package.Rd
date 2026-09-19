@@ -6,23 +6,17 @@
 \alias{rmet-package}
 \title{rmet: Access Historical Weather Data from INMET}
 \description{
-The \code{rmet} package provides tools to download, cache, and parse
-historical hourly weather data from Brazil's National Institute of
-Meteorology (INMET).
-\subsection{Main functions}{
-\itemize{
-\item \code{\link[=inmet_download]{inmet_download()}} — Download annual ZIP files with resume support.
-\item \code{\link[=inmet_read]{inmet_read()}} — Parse downloaded ZIPs into a tidy \code{data.frame}.
-\item \code{\link[=inmet_extract]{inmet_extract()}} — Unzip CSVs to a directory.
-\item \code{\link[=inmet_stations]{inmet_stations()}} — Browse the bundled station catalogue.
+Tools to discover stations and download, cache, and parse historical hourly
+weather data from Brazil's National Institute of Meteorology (INMET).
 }
-}
-}
-\section{Data source}{
+\section{Main functions}{
 
-Data is retrieved from
-"portal.inmet.gov.br/dadoshistoricos". Please consult INMET's
-terms of use before redistributing the raw data.
+\itemize{
+\item \code{\link[=inmet_get]{inmet_get()}} downloads and reads data in one call.
+\item \code{\link[=inmet_download]{inmet_download()}} downloads annual archives.
+\item \code{\link[=inmet_read]{inmet_read()}} parses cached archives.
+\item \code{\link[=inmet_stations]{inmet_stations()}} searches the official station catalogue.
+}
 }
 
 \seealso{

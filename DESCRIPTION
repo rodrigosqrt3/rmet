@@ -1,18 +1,20 @@
 Package: rmet
 Type: Package
 Title: Download and Read Brazilian Meteorological Data from INMET
-Version: 0.1.0
-Authors@R: person("Rodrigo Fonseca", "Villa", 
+Version: 0.2.0
+Authors@R: person("Rodrigo Fonseca", "Villa",
                   email = "rodrigo03.villa@gmail.com",
                   role = c("aut", "cre"),
                   comment = c(ORCID = "0009-0005-2938-2270"))
 Description: Automates the download and processing of historical weather
     data from the Brazilian National Institute of Meteorology (INMET).
-    It resolves formatting inconsistencies in raw CSV files across different
-    years, removes structural artifacts, standardizes column names, converts
-    timestamps to local Brazilian time zones, and outputs tidy data frames
-    ready for analysis. Data are retrieved from
-    <https://portal.inmet.gov.br/dadoshistoricos>.
+    It provides a cached catalogue of automatic stations, resumable and
+    validated downloads, and parsers for formatting inconsistencies in raw
+    CSV files across different years. It removes structural artifacts,
+    standardizes column names, parses timestamps, and returns data frames ready
+    for analysis. Data are retrieved from
+    <https://portal.inmet.gov.br/dadoshistoricos> and
+    <https://apitempo.inmet.gov.br/estacoes/T>.
 Depends: R (>= 4.0.0)
 Encoding: UTF-8
 LazyData: true
@@ -22,8 +24,9 @@ URL: https://github.com/rodrigosqrt3/rmet
 BugReports: https://github.com/rodrigosqrt3/rmet/issues
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Imports: 
-    curl
+Imports:
+    curl,
+    jsonlite
 Suggests:
     spelling,
     testthat (>= 3.0.0),

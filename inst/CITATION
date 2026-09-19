@@ -1,0 +1,10 @@
+citHeader("To cite rmet in publications use:")
+
+bibentry(
+  bibtype = "Manual",
+  title = "rmet: Download and Read Brazilian Meteorological Data from INMET",
+  author = person("Rodrigo Fonseca", "Villa"),
+  year = "2026",
+  note = "R package version 0.2.0",
+  url = "https://github.com/rodrigosqrt3/rmet"
+)

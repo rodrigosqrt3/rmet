@@ -2,53 +2,61 @@
 % Please edit documentation in R/stations.R
 \name{inmet_stations}
 \alias{inmet_stations}
-\title{List INMET automatic weather stations}
+\title{Search the INMET automatic-station catalogue}
 \usage{
-inmet_stations(region = NULL, state = NULL, search = NULL)
+inmet_stations(
+  region = NULL,
+  state = NULL,
+  search = NULL,
+  status = NULL,
+  entity = NULL,
+  source = c("auto", "remote", "bundled"),
+  refresh = FALSE,
+  max_age = 30,
+  cache_dir = tools::R_user_dir("rmet", "cache"),
+  quiet = FALSE
+)
 }
 \arguments{
-\item{region}{Character vector. Filter by macro-region code(s):
-\code{"CO"}, \code{"N"}, \code{"NE"}, \code{"S"}, \code{"SE"}. Case-insensitive.
-If \code{NULL} (default), all regions are returned.}
+\item{region, state}{Optional region or state abbreviations.}
 
-\item{state}{Character vector. Filter by two-letter state abbreviation(s)
-(e.g., \code{"RS"}, \code{"SP"}, \code{"AM"}). Case-insensitive.
-If \code{NULL} (default), all states are returned.}
+\item{search}{Optional literal text contained in the station name or code.}
 
-\item{search}{Character. A free-text search string applied to the station
-name column (case-insensitive, partial matching). If \code{NULL} (default),
-no name filtering is applied.}
+\item{status}{Optional operational status, such as \code{"Operante"} or \code{"Pane"}.}
+
+\item{entity}{Optional station owner/provider, such as \code{"INMET"}.}
+
+\item{source}{One of \code{"auto"}, \code{"remote"}, or \code{"bundled"}. \code{"auto"} uses
+the cache, then the official API, then the bundled fallback.}
+
+\item{refresh}{Force a fresh request to the official API.}
+
+\item{max_age}{Maximum cache age in days before an automatic refresh.}
+
+\item{cache_dir}{Directory used for the catalogue cache.}
+
+\item{quiet}{Suppress informational messages.}
 }
 \value{
-A \code{data.frame} with columns:
-\describe{
-\item{\code{station_code}}{Character. INMET four-character station identifier.}
-\item{\code{station_name}}{Character. Station name.}
-\item{\code{region}}{Character. Macro-region code.}
-\item{\code{state}}{Character. Two-letter state abbreviation.}
-\item{\code{latitude}}{Numeric. Decimal degrees (negative = south).}
-\item{\code{longitude}}{Numeric. Decimal degrees (negative = west).}
-\item{\code{elevation}}{Numeric. Altitude in metres.}
-\item{\code{start_year}}{Integer. Year from which data is available.}
-}
+A data frame with station code, name, region, state, coordinates,
+altitude, operational dates and status, and provider metadata. The legacy
+\code{start_year} column is retained for compatibility.
 }
 \description{
-Returns a \code{data.frame} of all INMET automatic weather stations (\emph{estações
-automáticas}) with their metadata. The catalogue is bundled with the package
-and reflects the stations as of the package release date.
+Returns automatic weather stations published by INMET. By default, the
+function uses a cached copy of the official API response and refreshes stale
+caches periodically. If the service is unavailable, it falls back to an
+older cache or to the smaller catalogue bundled with the package.
 }
 \examples{
-# All stations
-st <- inmet_stations()
-nrow(st)
+# Offline, reproducible example using the bundled fallback
+inmet_stations(state = "RS", source = "bundled")
 
-# Stations in Rio Grande do Sul
-st_rs <- inmet_stations(state = "RS")
-
-# Search by name
-inmet_stations(search = "porto alegre")
-
+\donttest{
+# Current official catalogue (downloaded once and then cached)
+inmet_stations(state = "RS", refresh = TRUE, cache_dir = tempdir())
+}
 }
 \seealso{
-\code{\link[=inmet_download]{inmet_download()}}, \code{\link[=inmet_read]{inmet_read()}}
+\code{\link[=inmet_get]{inmet_get()}}, \code{\link[=inmet_read]{inmet_read()}}
 }

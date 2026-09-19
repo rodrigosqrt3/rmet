@@ -31,8 +31,11 @@ their structural quirks, and returning a clean, analysis-ready `data.frame`.
 ## Installation
 
 ```{r install, eval = FALSE}
-# install.packages("devtools")
-devtools::install_github("rodrigosqrt3/rmet")
+install.packages("rmet")
+
+# Development version:
+# install.packages("pak")
+# pak::pak("rodrigosqrt3/rmet")
 ```
 
 ```{r library}
@@ -41,13 +44,16 @@ library(rmet)
 
 ## Step 1 — Browse the station catalogue
 
-The package ships with a bundled catalogue of all automatic INMET stations.
-`inmet_stations()` lets you filter by state, so you can confirm station codes
-before downloading anything.
+`inmet_stations()` downloads the current official automatic-station catalogue
+and caches it locally. Stale catalogues are periodically refreshed. If the
+service is unavailable, the package falls back to an older cache or to a
+smaller bundled catalogue. You can filter by state, operational status,
+provider, or station name before downloading weather archives.
 
 ```{r stations, eval = FALSE}
-stations <- inmet_stations(state = "RS")
-head(stations[, c("code", "name", "latitude", "longitude", "elevation")])
+stations <- inmet_stations(state = "RS", status = "Operante")
+head(stations[, c("station_code", "station_name", "latitude",
+                  "longitude", "elevation", "status")])
 ```
 
 Station **A801** is the Porto Alegre automatic station, located at roughly
@@ -74,8 +80,9 @@ inmet_cache_status()
 ## Step 3 — Read data into R
 
 `inmet_read()` parses the ZIP archives directly — no manual extraction needed.
-It normalises column names, converts all measurement columns to `numeric`,
-parses timestamps, and shifts UTC to local Brazilian time.
+It normalises column names, converts measurement columns to `numeric`, and
+parses timestamps. Timestamps remain in UTC by default; pass an Olson time-zone
+name such as `tz = "America/Sao_Paulo"` when another display is required.
 
 ```{r read, eval = FALSE}
 df <- inmet_read(
@@ -271,8 +278,8 @@ par(oldpar)
 
 ## Filtering and subsetting
 
-`inmet_read()` supports filtering at read time, which avoids loading
-unnecessary data into memory.
+`inmet_read()` applies filters to each station file before combining all
+stations and years, reducing the size of the final object held in memory.
 
 ```{r filter, eval = FALSE}
 # Only summer months (December–February), temperature and humidity
@@ -321,9 +328,13 @@ The table below lists all meteorological columns returned by `inmet_read()`.
 | Column | Description | Unit |
 |---|---|---|
 | `temp_dry_c` | Dry-bulb (air) temperature | °C |
-| `temp_max_c` | Maximum temperature (previous hour) | °C |
-| `temp_min_c` | Minimum temperature (previous hour) | °C |
+| `temp_max_c` | Maximum air temperature reported by the source format | °C |
+| `temp_min_c` | Minimum air temperature reported by the source format | °C |
+| `temp_max_prev_c` | Maximum air temperature in the previous hour | °C |
+| `temp_min_prev_c` | Minimum air temperature in the previous hour | °C |
 | `temp_dew_c` | Dew-point temperature | °C |
+| `temp_dew_max_c` | Maximum dew-point temperature | °C |
+| `temp_dew_min_c` | Minimum dew-point temperature | °C |
 | `precip_mm` | Total precipitation | mm |
 | `pressure_station_hpa` | Atmospheric pressure at station level | hPa |
 | `pressure_max_hpa` | Maximum pressure (previous hour) | hPa |
@@ -338,4 +349,7 @@ The table below lists all meteorological columns returned by `inmet_read()`.
 
 ## Data source
 
-All data are provided by INMET and are freely available. The package does not redistribute raw data; it only automates retrieval and parsing of files hosted by INMET.
+All data are provided by INMET and are freely available. The package does not
+redistribute raw data; it only automates retrieval and parsing of files hosted
+by INMET. Automatic-station observations are raw measurements and should be
+subjected to quality-control rules appropriate to the intended analysis.

@@ -2,7 +2,7 @@
 % Please edit documentation in R/read.R
 \name{inmet_extract}
 \alias{inmet_extract}
-\title{Extract and save INMET ZIP contents to a directory}
+\title{Extract INMET archives}
 \usage{
 inmet_extract(
   years,
@@ -13,21 +13,19 @@ inmet_extract(
 )
 }
 \arguments{
-\item{years}{Integer vector of years to extract.}
+\item{years}{Integer years to extract.}
 
-\item{dest_dir}{Character. Directory of ZIP files (same as \code{\link[=inmet_download]{inmet_download()}}).}
+\item{dest_dir}{Directory containing annual ZIP files.}
 
-\item{out_dir}{Character. Directory where CSVs will be written. Defaults to
-a subdirectory \verb{csv/} inside \code{dest_dir}.}
+\item{out_dir}{Destination directory.}
 
-\item{overwrite}{Logical. Overwrite existing CSVs? Defaults to \code{FALSE}.}
+\item{overwrite}{Overwrite existing files.}
 
-\item{quiet}{Logical. Suppress messages. Defaults to \code{FALSE}.}
+\item{quiet}{Suppress progress messages.}
 }
 \value{
-Invisible character vector of paths to all extracted CSV files.
+Invisibly, paths returned by \code{\link[utils:unzip]{utils::unzip()}}.
 }
 \description{
-Unzips one or more downloaded INMET annual ZIPs to a target directory,
-preserving the original CSV files.
+Extract INMET archives
 }

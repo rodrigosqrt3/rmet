@@ -2,24 +2,17 @@
 % Please edit documentation in R/utils.R
 \name{inmet_cache_status}
 \alias{inmet_cache_status}
-\title{Check which years have already been downloaded}
+\title{Inspect downloaded INMET archives}
 \usage{
 inmet_cache_status(dest_dir = tools::R_user_dir("rmet", "cache"))
 }
 \arguments{
-\item{dest_dir}{Character. Cache directory (same as \code{\link[=inmet_download]{inmet_download()}}).}
+\item{dest_dir}{Cache directory used by \code{\link[=inmet_download]{inmet_download()}}.}
 }
 \value{
-A \code{data.frame} with columns \code{year} (integer), \code{path} (character),
-\code{size_mb} (numeric), and \code{valid} (logical, whether the ZIP passes
-integrity check).
+Invisibly, a data frame with archive year, path, size, validity, and
+whether a partial download exists.
 }
 \description{
-Convenience function that scans the cache directory and reports which
-annual ZIPs are present and valid.
-}
-\examples{
-\donttest{
-inmet_cache_status()
-}
+Inspect downloaded INMET archives
 }

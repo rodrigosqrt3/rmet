@@ -2,25 +2,27 @@
 % Please edit documentation in R/utils.R
 \name{inmet_cache_clear}
 \alias{inmet_cache_clear}
-\title{Clear the rmet download cache}
+\title{Clear the rmet cache}
 \usage{
 inmet_cache_clear(
   years = NULL,
   dest_dir = tools::R_user_dir("rmet", "cache"),
-  ask = interactive()
+  ask = interactive(),
+  catalog = FALSE
 )
 }
 \arguments{
-\item{years}{Integer vector of years to remove, or \code{NULL} to remove all.}
+\item{years}{Integer years to remove, or \code{NULL} for every archive.}
 
-\item{dest_dir}{Character. Cache directory.}
+\item{dest_dir}{Cache directory.}
 
-\item{ask}{Logical. If \code{TRUE} (default in interactive sessions), prompt
-before deleting.}
+\item{ask}{Ask for confirmation before deleting.}
+
+\item{catalog}{Also remove the cached official station catalogue.}
 }
 \value{
 Invisible \code{NULL}.
 }
 \description{
-Deletes downloaded ZIP files from the cache directory.
+Clear the rmet cache
 }

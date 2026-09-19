@@ -3,6 +3,8 @@ test_that("inmet_download input validation works", {
   expect_error(inmet_download(years = 3000), "future")
   expect_error(inmet_download(max_tries = 0), "positive integer")
   expect_error(inmet_download(years = NA_integer_), "integers")
+  expect_error(inmet_download(years = 2020.5), "integers")
+  expect_error(inmet_download(years = integer()), "non-empty")
 })
 
 test_that("inmet_download creates dest_dir if missing", {
@@ -72,7 +74,7 @@ test_that("inmet_download warns and returns empty vector when all attempts fail"
   expect_warning(
     expect_message(
       result <- inmet_download(years = 2021, dest_dir = td, max_tries = 2, quiet = FALSE),
-      "Connection dropped"
+      "Attempt"
     ),
     "Failed to download"
   )
@@ -91,6 +93,42 @@ test_that("inmet_download quiet = FALSE emits messages on success", {
   expect_message(
     inmet_download(years = 2020, dest_dir = td, max_tries = 1, quiet = FALSE)
   )
+})
+
+test_that("inmet_download does not contact the server for a valid cached ZIP", {
+  td <- file.path(tempdir(), "rmet_cached_test")
+  create_mock_inmet_data(td, year = 2020)
+
+  local_mocked_bindings(
+    curl_fetch_stream = function(...) stop("network should not be used"),
+    .package = "curl"
+  )
+
+  expect_message(
+    result <- inmet_download(2020, dest_dir = td, quiet = FALSE),
+    "already cached"
+  )
+  expect_true(file.exists(result[[1]]))
+})
+
+test_that("failed downloads remain .part files", {
+  td <- file.path(tempdir(), "rmet_part_test")
+  unlink(td, recursive = TRUE)
+
+  local_mocked_bindings(
+    curl_fetch_stream = function(url, fun, handle) {
+      fun(charToRaw("not a zip"))
+      stop("connection dropped")
+    },
+    .package = "curl"
+  )
+
+  expect_warning(
+    inmet_download(2020, dest_dir = td, max_tries = 1, quiet = TRUE),
+    "Failed to download"
+  )
+  expect_false(file.exists(file.path(td, "2020.zip")))
+  expect_true(file.exists(file.path(td, "2020.zip.part")))
 })
 
 test_that("inmet_download handles multiple years, partial failure", {
@@ -120,6 +158,8 @@ test_that("inmet_download handles multiple years, partial failure", {
 
 test_that("inmet_download fetches data for real (skipped on CRAN)", {
   skip_on_cran()
+  skip_if(Sys.getenv("RMET_RUN_NETWORK_TESTS") != "true",
+          "set RMET_RUN_NETWORK_TESTS=true to run live network tests")
   skip_if_offline()
   test_cache <- file.path(tempdir(), "rmet_dl_test")
   paths <- inmet_download(years = 2023, dest_dir = test_cache, max_tries = 3, quiet = TRUE)

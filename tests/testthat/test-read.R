@@ -22,8 +22,8 @@ test_that("inmet_read correctly parses ZIP files", {
     dest_dir = test_cache,
     quiet = TRUE
   )
-  expect_equal(nrow(df_filtered), 1)
-  expect_equal(df_filtered$temp_dry_c[1], 18.5)
+  expect_equal(nrow(df_filtered), 2)
+  expect_equal(df_filtered$temp_dry_c[1], 14.7)
 
   df_sub <- inmet_read(
     years = 2020,
@@ -38,6 +38,15 @@ test_that("inmet_read correctly parses ZIP files", {
 
 test_that("inmet_read errors on NA years", {
   expect_error(inmet_read(years = NA_integer_), "integers")
+})
+
+test_that("inmet_read validates dates and time zones", {
+  expect_error(inmet_read(2020, tz = "Not/AZone"), "Unknown timezone")
+  expect_error(inmet_read(2020, start_date = "2020-99-01"), "valid date")
+  expect_error(
+    inmet_read(2020, start_date = "2020-02-01", end_date = "2020-01-01"),
+    "must not be after"
+  )
 })
 
 test_that("inmet_read errors when ZIP is missing", {
@@ -74,7 +83,7 @@ test_that("inmet_read warns when date filter removes all rows", {
     result <- inmet_read(years = 2020, dest_dir = td,
                          start_date = "2099-01-01", end_date = "2099-01-02",
                          quiet = TRUE),
-    "No data left after"
+    "No data was read"
   )
   expect_equal(nrow(result), 0L)
 })
@@ -137,15 +146,10 @@ test_that("inmet_extract warns when ZIP missing", {
 })
 
 test_that(".convert_tz handles unknown timezone", {
-
-  expect_warning(
-    result <- rmet:::.convert_tz(
-      as.POSIXct("2020-01-01", tz = "UTC"),
-      "Not/ATimezone"
-    ),
+  expect_error(
+    rmet:::.convert_tz(as.POSIXct("2020-01-01", tz = "UTC"), "Not/ATimezone"),
     "Unknown timezone"
   )
-  expect_s3_class(result, "POSIXct")
 })
 
 test_that(".safe_rbind returns NULL on empty input", {
@@ -172,17 +176,57 @@ test_that("errors when unzip fails", {
     {
       expect_error(
         inmet_read(years = 2020, dest_dir = td, quiet = TRUE),
-        "Cannot open ZIP"
+        "invalid or incomplete"
       )
     }
   )
+})
+
+test_that("specific temperature mappings are not overwritten", {
+  input <- data.frame(
+    "Data" = "2020-01-01",
+    "Hora UTC" = "0000 UTC",
+    "TEMPERATURA DO PONTO DE ORVALHO MAX. NA HORA ANT. (AUT) (°C)" = "10,0",
+    "TEMPERATURA DO PONTO DE ORVALHO MIN. NA HORA ANT. (AUT) (°C)" = "8,0",
+    "TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)" = "20,0",
+    check.names = FALSE
+  )
+  renamed <- rmet:::.rename_columns(input)
+  expect_true(all(c("temp_dew_max_c", "temp_dew_min_c", "temp_max_prev_c") %in% names(renamed)))
+})
+
+test_that("station codes with four to six characters are recognized", {
+  expect_equal(
+    rmet:::.extract_station_code("INMET_S_RS_A801_PORTO.CSV"),
+    "A801"
+  )
+  expect_equal(
+    rmet:::.extract_station_code("INMET_S_RS_A608B_SAO_GABRIEL.CSV"),
+    "A608B"
+  )
+})
+
+test_that("2400 UTC rolls over to the next day", {
+  value <- rmet:::.parse_inmet_datetime("2020-01-01", "2400 UTC", "UTC")
+  expect_equal(format(value, tz = "UTC"), "2020-01-02")
+})
+
+test_that("inmet_get provides the complete cached workflow", {
+  td <- file.path(tempdir(), "rmet_get")
+  create_mock_inmet_data(td, year = 2020)
+  result <- inmet_get(2020, stations = "A801", dest_dir = td, quiet = TRUE)
+  expect_equal(nrow(result), 3L)
+  expect_s3_class(result$datetime, "POSIXct")
 })
 
 test_that("fallback datetime parsing is triggered", {
   td <- file.path(tempdir(), "rmet_bad_dt")
   create_mock_inmet_bad_datetime(td)
 
-  df <- inmet_read(years = 2020, dest_dir = td, quiet = TRUE)
+  expect_warning(
+    df <- inmet_read(years = 2020, dest_dir = td, quiet = TRUE),
+    "invalid timestamp"
+  )
 
   expect_s3_class(df$datetime, "POSIXct")
 })

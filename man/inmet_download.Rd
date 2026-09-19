@@ -2,7 +2,7 @@
 % Please edit documentation in R/download.R
 \name{inmet_download}
 \alias{inmet_download}
-\title{Download INMET historical data ZIPs with resume support}
+\title{Download INMET historical data archives}
 \usage{
 inmet_download(
   years = as.integer(format(Sys.Date(), "\%Y")),
@@ -13,50 +13,36 @@ inmet_download(
 )
 }
 \arguments{
-\item{years}{Integer vector of years to download. Available years start from
+\item{years}{Integer vector of years to download. Available years start in
 2000. Defaults to the current year.}
 
-\item{dest_dir}{Character. Directory where ZIP files will be saved.
-Created automatically if it does not exist. Defaults to a persistent
-cache directory under \code{tools::R_user_dir("rmet", "cache")}.}
+\item{dest_dir}{Character. Cache directory. It is created when necessary.}
 
-\item{max_tries}{Integer. Maximum number of download attempts per year
-before giving up. Defaults to \code{15}.}
+\item{max_tries}{Positive integer. Maximum attempts per year.}
 
-\item{quiet}{Logical. If \code{TRUE}, suppresses progress messages.
-Defaults to \code{FALSE}.}
+\item{quiet}{Logical. Suppress progress messages.}
 
-\item{force}{Logical. If \code{TRUE}, deletes any existing (possibly partial)
-ZIP before downloading. Defaults to \code{FALSE}.}
+\item{force}{Logical. Download again even when a valid archive is cached.}
 }
 \value{
-Invisibly returns a named character vector (class \code{character}) of
-local file paths to the downloaded ZIP files. Names correspond to the
-requested years (e.g., \code{"2023"}). Years that failed to download are
-excluded. If all downloads fail, an empty named character vector is
-returned.
+Invisibly, a named character vector containing the paths of all
+successfully downloaded archives.
 }
 \description{
 Downloads one or more annual ZIP files from INMET's historical data portal.
-Downloads are resumable: if a partial file is already on disk (e.g., from a
-previous interrupted session), the function picks up where it left off
-instead of restarting.
+Complete archives already in the cache are reused. Interrupted downloads are
+kept in a \code{.part} file and resumed on the next attempt.
 }
 \details{
-INMET's server sometimes drops connections mid-transfer. The function
-handles this by using \code{curl}'s \code{CURLOPT_RESUME_FROM} to append to the
-partial file on each retry, then validates the result with
-\code{\link[utils:unzip]{utils::unzip()}}. A \code{Sys.sleep(5)} back-off separates retries.
-
-ZIP files are \strong{not} extracted by this function. Use \code{\link[=inmet_read]{inmet_read()}} to
-parse the contents directly from the ZIP, or \code{\link[=inmet_extract]{inmet_extract()}} to unzip
-to a directory.
+Files are first written to \verb{<year>.zip.part}. A partial file is never exposed
+as a complete ZIP. After an integrity check succeeds, the file is atomically
+moved to \verb{<year>.zip} whenever the operating system permits it.
 }
 \examples{
 \donttest{
-paths <- inmet_download(years = 2000, dest_dir = tempdir())
+paths <- inmet_download(2023, dest_dir = tempdir())
 }
 }
 \seealso{
-\code{\link[=inmet_read]{inmet_read()}}, \code{\link[=inmet_extract]{inmet_extract()}}
+\code{\link[=inmet_read]{inmet_read()}}, \code{\link[=inmet_get]{inmet_get()}}, \code{\link[=inmet_extract]{inmet_extract()}}
 }
