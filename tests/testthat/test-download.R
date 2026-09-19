@@ -167,3 +167,145 @@ test_that("inmet_download fetches data for real (skipped on CRAN)", {
   expect_true(file.exists(paths[[1]]))
 })
 
+test_that("download can stream a valid archive and finalize a valid part", {
+  source_dir <- file.path(tempdir(), "rmet_download_source")
+  unlink(source_dir, recursive = TRUE)
+  source_zip <- create_mock_inmet_data(source_dir, 2020)
+  bytes <- readBin(source_zip, what = "raw", n = file.info(source_zip)$size)
+
+  td <- file.path(tempdir(), "rmet_stream_success")
+  unlink(td, recursive = TRUE)
+  local_mocked_bindings(
+    curl_fetch_stream = function(url, fun, handle) {
+      fun(bytes)
+      invisible(list(status_code = 200L))
+    },
+    .package = "curl"
+  )
+  expect_message(
+    result <- inmet_download(2020, dest_dir = td, max_tries = 1, quiet = FALSE),
+    "Year 2020 OK"
+  )
+  expect_true(rmet:::.is_valid_zip(result[["2020"]]))
+
+  td_part <- file.path(tempdir(), "rmet_valid_part")
+  unlink(td_part, recursive = TRUE)
+  dir.create(td_part)
+  file.copy(source_zip, file.path(td_part, "2020.zip.part"))
+  expect_message(
+    part_result <- inmet_download(2020, dest_dir = td_part, quiet = FALSE),
+    "Year 2020 OK"
+  )
+  expect_true(file.exists(part_result[["2020"]]))
+})
+
+test_that("download handles legacy partial files and range failures", {
+  td <- file.path(tempdir(), "rmet_legacy_partial")
+  unlink(td, recursive = TRUE)
+  dir.create(td)
+  writeLines("old partial", file.path(td, "2020.zip"))
+
+  local_mocked_bindings(
+    curl_fetch_stream = function(...) stop("connection failed"),
+    .package = "curl"
+  )
+  expect_warning(
+    inmet_download(2020, dest_dir = td, max_tries = 1, quiet = TRUE),
+    "Failed to download"
+  )
+  expect_true(file.exists(file.path(td, "2020.zip.part")))
+
+  writeLines("bad final", file.path(td, "2020.zip"))
+  expect_warning(
+    inmet_download(2020, dest_dir = td, max_tries = 1, quiet = TRUE),
+    "Failed to download"
+  )
+  expect_false(file.exists(file.path(td, "2020.zip")))
+
+  range_dir <- file.path(tempdir(), "rmet_range_failure")
+  unlink(range_dir, recursive = TRUE)
+  dir.create(range_dir)
+  writeLines("partial", file.path(range_dir, "2020.zip.part"))
+  local_mocked_bindings(
+    curl_fetch_stream = function(...) stop("HTTP 416 range resume"),
+    .package = "curl"
+  )
+  expect_warning(
+    inmet_download(2020, dest_dir = range_dir, max_tries = 1, quiet = TRUE),
+    "Failed to download"
+  )
+  expect_false(file.exists(file.path(range_dir, "2020.zip.part")))
+})
+
+test_that("download handles unavailable file sizes and replaces destinations", {
+  td <- file.path(tempdir(), "rmet_na_size")
+  unlink(td, recursive = TRUE)
+  dir.create(td)
+  part <- file.path(td, "2020.zip.part")
+  writeLines("partial", part)
+
+  local_mocked_bindings(file.size = function(...) NA_real_, .package = "base")
+  local_mocked_bindings(
+    curl_fetch_stream = function(...) stop("connection failed"),
+    .package = "curl"
+  )
+  expect_warning(
+    rmet:::.download_one_year(
+      2020, file.path(td, "2020.zip"), part,
+      max_tries = 1, quiet = TRUE
+    ),
+    "Failed to download"
+  )
+
+  source_dir <- file.path(tempdir(), "rmet_replace_destination")
+  unlink(source_dir, recursive = TRUE)
+  valid <- create_mock_inmet_data(source_dir, 2020)
+  valid_part <- file.path(source_dir, "valid.zip.part")
+  file.copy(valid, valid_part)
+  destination <- file.path(source_dir, "destination.zip")
+  writeLines("old destination", destination)
+  expect_true(rmet:::.finalize_download(valid_part, destination, 2020, quiet = TRUE))
+  expect_true(rmet:::.is_valid_zip(destination))
+})
+
+test_that("download and finalization report filesystem failures", {
+  blocker <- tempfile("rmet-dest-file-")
+  writeLines("file", blocker)
+  expect_error(
+    inmet_download(2020, dest_dir = file.path(blocker, "child"), max_tries = 1),
+    "Could not create"
+  )
+
+  td <- file.path(tempdir(), "rmet_force_remove_failure")
+  unlink(td, recursive = TRUE)
+  create_mock_inmet_data(td, 2020)
+  local_mocked_bindings(file.remove = function(...) FALSE, .package = "base")
+  expect_warning(
+    result <- inmet_download(2020, dest_dir = td, force = TRUE, quiet = TRUE),
+    "Could not remove"
+  )
+  expect_length(result, 0L)
+
+  source_dir <- file.path(tempdir(), "rmet_finalize_source")
+  unlink(source_dir, recursive = TRUE)
+  part <- create_mock_inmet_data(source_dir, 2020)
+  destination <- file.path(source_dir, "final.zip")
+
+  local_mocked_bindings(file.rename = function(...) FALSE, .package = "base")
+  expect_true(rmet:::.finalize_download(part, destination, 2020, quiet = TRUE))
+  expect_true(file.exists(destination))
+
+  part2 <- create_mock_inmet_data(file.path(tempdir(), "rmet_finalize_fail"), 2020)
+  local_mocked_bindings(
+    file.rename = function(...) FALSE,
+    file.copy = function(...) FALSE,
+    .package = "base"
+  )
+  expect_warning(
+    expect_false(rmet:::.finalize_download(
+      part2, tempfile(fileext = ".zip"), 2020, quiet = TRUE
+    )),
+    "could not be finalized"
+  )
+})
+

@@ -281,3 +281,144 @@ test_that("inmet_read handles CSV where all data rows are NA (parse returns NULL
   )
   expect_equal(nrow(result), 0L)
 })
+
+test_that("column classification covers every canonical variable", {
+  input <- as.data.frame(
+    setNames(
+      replicate(23, "1", simplify = FALSE),
+      c(
+        "Data", "Hora UTC", "PRECIPITACAO TOTAL",
+        "PRESSAO MAX", "PRESSAO MIN", "PRESSAO ESTACAO", "RADIACAO GLOBAL",
+        "TEMP PONTO ORVALHO MAX", "TEMP PONTO ORVALHO MIN",
+        "TEMP PONTO ORVALHO HORARIA", "TEMP MAX HORA ANT", "TEMP MIN HORA ANT",
+        "TEMP BULBO SECO", "TEMP MAX", "TEMP MIN", "UMIDADE MAX",
+        "UMIDADE MIN", "UMIDADE HORARIA", "VENTO DIRECAO", "VENTO RAJADA",
+        "VENTO VELOCIDADE", "Foo Bar", "Foo-Bar"
+      )
+    ),
+    check.names = FALSE
+  )
+  result <- rmet:::.rename_columns(input)
+  expected <- c(
+    "date_raw", "hour_raw", "precip_mm", "pressure_max_hpa",
+    "pressure_min_hpa", "pressure_station_hpa", "radiation_kjm2",
+    "temp_dew_max_c", "temp_dew_min_c", "temp_dew_c", "temp_max_prev_c",
+    "temp_min_prev_c", "temp_dry_c", "temp_max_c", "temp_min_c",
+    "humid_rel_max_pct", "humid_rel_min_pct", "humid_rel_pct",
+    "wind_dir_deg", "wind_gust_ms", "wind_speed_ms", "foo_bar", "foo_bar_1"
+  )
+  expect_equal(names(result), expected)
+})
+
+test_that("datetime parser covers every accepted date and hour form", {
+  values <- rmet:::.parse_inmet_datetime(
+    c("2020-01-01", "2020/01/02", "03/01/2020", "04-01-2020"),
+    c("0", "0100 UTC", "02:00", "0300"),
+    "UTC"
+  )
+  expect_false(anyNA(values))
+  expect_equal(
+    format(values, tz = "UTC", format = "%H:%M"),
+    c("00:00", "01:00", "02:00", "03:00")
+  )
+
+  iso <- rmet:::.parse_inmet_datetime(
+    c("2020-01-01", "2020-01-02"), c("0000", "0100"), "UTC"
+  )
+  expect_false(anyNA(iso))
+})
+
+test_that("header helpers handle missing and malformed metadata", {
+  parsed <- rmet:::.parse_inmet_header(
+    c("REGIAO:", "UF:;RS;", "LATITUDE:;-30,5;")
+  )
+  expect_true(is.na(parsed$region))
+  expect_equal(parsed$state, "RS")
+  expect_equal(parsed$latitude, -30.5)
+  expect_true(is.na(parsed$name))
+  expect_equal(rmet:::.normalize_text(c("estação", " ok ")), c("ESTACAO", "OK"))
+})
+
+test_that("single CSV parser covers fallback metadata and structural errors", {
+  path <- file.path(tempdir(), "INMET_S_RS_A999_TEST_2020.CSV")
+  writeLines(c(
+    "REGIAO:;S;", "UF:;RS;", "ESTACAO:;TEST;",
+    "Data;Hora UTC", "2020-01-01;0000 UTC"
+  ), path)
+  result <- rmet:::.parse_inmet_csv(path, tz = "UTC")
+  expect_equal(result$station_code, "A999")
+  expect_equal(nrow(result), 1L)
+
+  no_header <- tempfile(fileext = ".CSV")
+  writeLines(c("REGIAO:;S;", "nothing useful"), no_header)
+  expect_error(rmet:::.parse_inmet_csv(no_header, "UTC"), "locate")
+
+  missing_hour <- tempfile(fileext = ".CSV")
+  writeLines(c(
+    "REGIAO:;S;",
+    "Data strange;Observation HORA;TEMP MAX",
+    "2020-01-01;0000;20"
+  ), missing_hour)
+  expect_error(
+    rmet:::.parse_inmet_csv(missing_hour, "UTC"),
+    "Required date and hour"
+  )
+})
+
+test_that("inmet_extract covers invalid output and unsafe archives", {
+  td <- file.path(tempdir(), "rmet_extract_coverage")
+  unlink(td, recursive = TRUE)
+  create_mock_inmet_data(td, 2020)
+
+  blocker <- tempfile("rmet-file-")
+  writeLines("file", blocker)
+  expect_error(
+    inmet_extract(2020, dest_dir = td, out_dir = file.path(blocker, "child")),
+    "Could not create"
+  )
+
+  calls <- 0L
+  local_mocked_bindings(
+    unzip = function(zipfile, list = FALSE, ...) {
+      if (isTRUE(list)) {
+        calls <<- calls + 1L
+        if (calls == 1L) return(data.frame(Name = "safe.CSV"))
+        return(data.frame(Name = "../unsafe.CSV"))
+      }
+      character()
+    },
+    .package = "utils"
+  )
+  expect_warning(
+    paths <- inmet_extract(
+      2020, dest_dir = td, out_dir = tempdir(), quiet = TRUE
+    ),
+    "unsafe paths"
+  )
+  expect_length(paths, 0L)
+})
+
+test_that("inmet_get reports archives that could not be obtained", {
+  td <- file.path(tempdir(), "rmet_get_missing")
+  unlink(td, recursive = TRUE)
+  dir.create(td)
+  local_mocked_bindings(
+    inmet_download = function(...) invisible(character()),
+    .package = "rmet"
+  )
+  expect_error(
+    inmet_get(2020, dest_dir = td, quiet = TRUE),
+    "Could not obtain"
+  )
+})
+
+test_that("inmet_read reports temporary-directory creation failures", {
+  td <- file.path(tempdir(), "rmet_tempdir_failure")
+  unlink(td, recursive = TRUE)
+  create_mock_inmet_data(td, 2020)
+  local_mocked_bindings(dir.create = function(...) FALSE, .package = "base")
+  expect_error(
+    inmet_read(2020, dest_dir = td, quiet = TRUE),
+    "Could not create a temporary directory"
+  )
+})
