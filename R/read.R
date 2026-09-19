@@ -333,7 +333,18 @@ inmet_extract <- function(
 }
 
 .normalize_text <- function(x) {
-  out <- iconv(x, from = "", to = "ASCII//TRANSLIT", sub = "")
+  # iconv() transliteration differs across operating systems. In particular,
+  # macOS may transliterate "ã" as "~a", which breaks column matching and
+  # accent-insensitive station searches. Translate Portuguese characters
+  # explicitly before asking iconv() to remove any remaining non-ASCII marks.
+  out <- as.character(x)
+  out <- chartr("ÁÀÂÃÄáàâãä", "AAAAAaaaaa", out)
+  out <- chartr("ÉÈÊËéèêë", "EEEEeeee", out)
+  out <- chartr("ÍÌÎÏíìîï", "IIIIiiii", out)
+  out <- chartr("ÓÒÔÕÖóòôõö", "OOOOOooooo", out)
+  out <- chartr("ÚÙÛÜúùûü", "UUUUuuuu", out)
+  out <- chartr("ÇçÑñ", "CcNn", out)
+  out <- iconv(out, from = "", to = "ASCII//TRANSLIT", sub = "")
   out[is.na(out)] <- x[is.na(out)]
   toupper(trimws(out))
 }
