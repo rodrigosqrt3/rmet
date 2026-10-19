@@ -39,14 +39,17 @@ the cache, then the official API, then the bundled fallback.}
 }
 \value{
 A data frame with station code, name, region, state, coordinates,
-altitude, operational dates and status, and provider metadata. The legacy
-\code{start_year} column is retained for compatibility.
+altitude, operational dates (UTC calendar dates) and status, and provider
+metadata. The legacy \code{start_year} column is retained for compatibility. The
+attribute \code{catalog_source} records where the data came from (\code{"cache"},
+\code{"INMET API"}, \code{"stale cache"}, or \code{"bundled fallback"}).
 }
 \description{
 Returns automatic weather stations published by INMET. By default, the
 function uses a cached copy of the official API response and refreshes stale
 caches periodically. If the service is unavailable, it falls back to an
-older cache or to the smaller catalogue bundled with the package.
+older cache or to a snapshot of the official catalogue bundled with the
+package (its date is stored in the \code{snapshot_date} attribute).
 }
 \examples{
 # Offline, reproducible example using the bundled fallback
@@ -58,5 +61,5 @@ inmet_stations(state = "RS", refresh = TRUE, cache_dir = tempdir())
 }
 }
 \seealso{
-\code{\link[=inmet_get]{inmet_get()}}, \code{\link[=inmet_read]{inmet_read()}}
+\code{\link[=inmet_nearest]{inmet_nearest()}}, \code{\link[=inmet_get]{inmet_get()}}, \code{\link[=inmet_read]{inmet_read()}}
 }

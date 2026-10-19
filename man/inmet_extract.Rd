@@ -8,6 +8,7 @@ inmet_extract(
   years,
   dest_dir = tools::R_user_dir("rmet", "cache"),
   out_dir = file.path(dest_dir, "csv"),
+  stations = NULL,
   overwrite = FALSE,
   quiet = FALSE
 )
@@ -19,13 +20,24 @@ inmet_extract(
 
 \item{out_dir}{Destination directory.}
 
+\item{stations}{Optional station codes; only their files are extracted.}
+
 \item{overwrite}{Overwrite existing files.}
 
 \item{quiet}{Suppress progress messages.}
 }
 \value{
-Invisibly, paths returned by \code{\link[utils:unzip]{utils::unzip()}}.
+Invisibly, the paths of the extracted files.
 }
 \description{
-Extract INMET archives
+Copies the original station CSV files out of the annual archives, for use
+with other software.
+}
+\examples{
+\donttest{
+cache <- file.path(tempdir(), "rmet")
+inmet_download(2023, dest_dir = cache)
+inmet_extract(2023, dest_dir = cache, out_dir = file.path(tempdir(), "csv"),
+              stations = "A801")
+}
 }

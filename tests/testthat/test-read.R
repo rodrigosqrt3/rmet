@@ -242,33 +242,34 @@ test_that(".safe_rbind handles completely disjoint columns", {
   expect_true(all(c("a","b","c") %in% names(result)))
 })
 
-test_that("inmet_read warns when inner unzip fails to extract a file", {
+test_that("inmet_read warns when a file cannot be read from the archive", {
   td <- file.path(tempdir(), "rmet_inner_unzip_fail")
   create_mock_inmet_data(td, year = 2020)
 
-  real_unzip <- utils::unzip
-  call_count <- 0L
-
-  testthat::with_mocked_bindings(
-    unzip = function(zipfile, list = FALSE, files = NULL, exdir = tempdir(), ...) {
-      if (isTRUE(list)) {
-        return(real_unzip(zipfile, list = TRUE))
-      }
-      call_count <<- call_count + 1L
-      if (call_count == 1L) stop("simulated extract failure")
-      real_unzip(zipfile, files = files, exdir = exdir, ...)
-    },
-    .package = "utils",
-    {
-      expect_warning(
-        expect_warning(
-          inmet_read(years = 2020, dest_dir = td, quiet = TRUE),
-          "No data was read"
-        ),
-        "Could not extract"
-      )
-    }
+  local_mocked_bindings(
+    .read_entry_lines = function(...) stop("simulated extract failure"),
+    .package = "rmet"
   )
+  expect_warning(
+    expect_warning(
+      inmet_read(years = 2020, dest_dir = td, quiet = TRUE),
+      "No data was read"
+    ),
+    "Could not extract"
+  )
+})
+
+test_that("entries that cannot be opened directly are extracted instead", {
+  td <- file.path(tempdir(), "rmet_entry_fallback")
+  zip_path <- create_mock_inmet_data(td, year = 2020)
+  entry <- utils::unzip(zip_path, list = TRUE)$Name[[1]]
+  work <- tempfile("rmet-work-")
+  dir.create(work)
+
+  local_mocked_bindings(unz = function(...) stop("cannot open"), .package = "base")
+  lines <- rmet:::.read_entry_lines(zip_path, entry, work)
+  expect_true(any(grepl("A801", lines)))
+  expect_length(list.files(work, recursive = TRUE), 0L)
 })
 
 test_that("inmet_read handles CSV where all data rows are NA (parse returns NULL)", {
@@ -318,8 +319,8 @@ test_that("datetime parser covers every accepted date and hour form", {
   )
   expect_false(anyNA(values))
   expect_equal(
-    format(values, tz = "UTC", format = "%H:%M"),
-    c("00:00", "01:00", "02:00", "03:00")
+    format(values, tz = "UTC", format = "%Y-%m-%d %H:%M"),
+    c("2020-01-01 00:00", "2020-01-02 01:00", "2020-01-03 02:00", "2020-01-04 03:00")
   )
 
   iso <- rmet:::.parse_inmet_datetime(

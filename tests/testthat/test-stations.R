@@ -98,8 +98,59 @@ test_that("auto station source uses and filters a cached official catalogue", {
 })
 
 test_that("station searches are accent-insensitive", {
-  result <- inmet_stations(search = "gravatai", source = "bundled")
-  expect_true(any(grepl("GRAVATA", result$station_name)))
+  result <- inmet_stations(search = "s\u00e3o lu\u00eds", state = "MA", source = "bundled")
+  expect_equal(result$station_code, "A203")
+})
+
+test_that("bundled catalogue matches well-known official stations", {
+  # Regression test: rmet <= 0.2.0 shipped a catalogue whose codes did not
+  # match INMET's (e.g. A801 listed as Sao Luis). These facts come from the
+  # official catalogue and the station files themselves.
+  st <- inmet_stations(source = "bundled")
+  row <- function(code) st[st$station_code == code, , drop = FALSE]
+
+  expect_equal(row("A801")$station_name, "PORTO ALEGRE - JARDIM BOTANICO")
+  expect_equal(row("A801")$state, "RS")
+  expect_equal(row("A801")$start_date, as.Date("2000-09-22"))
+  expect_equal(row("A001")$station_name, "BRASILIA")
+  expect_equal(row("A001")$state, "DF")
+  expect_equal(row("A652")$state, "RJ")
+  expect_equal(row("A203")$state, "MA")
+
+  expect_gt(nrow(st), 500L)
+  expect_false(anyDuplicated(st$station_code) > 0L)
+  expect_true(all(st$latitude > -34.5 & st$latitude < 5.5, na.rm = TRUE))
+  expect_true(all(st$longitude > -74.5 & st$longitude < -28.5, na.rm = TRUE))
+  expect_true(all(st$region == unname(rmet:::.state_regions()[st$state])))
+  expect_s3_class(attr(st, "snapshot_date"), "Date")
+})
+
+test_that("API timestamps are converted to UTC calendar dates", {
+  expect_equal(
+    rmet:::.api_date(c(
+      "2000-09-21T21:00:00.000-03:00",  # 2000-09-22 00:00 UTC
+      "2000-09-21T20:59:00.000-03:00",  # still 2000-09-21 in UTC
+      "2010-01-01T00:30:00.000+01:00",  # 2009-12-31 23:30 UTC
+      "2015-05-14",
+      "", NA
+    )),
+    as.Date(c("2000-09-22", "2000-09-21", "2009-12-31", "2015-05-14", NA, NA))
+  )
+})
+
+test_that("inmet_nearest ranks stations by distance", {
+  near <- inmet_nearest(-30.05, -51.17, n = 3, source = "bundled")
+  expect_equal(nrow(near), 3L)
+  expect_equal(near$station_code[[1]], "A801")
+  expect_true(near$distance_km[[1]] < 1)
+  expect_false(is.unsorted(near$distance_km))
+
+  # Porto Alegre to Brasilia is about 1,620 km
+  bsb <- inmet_nearest(-30.05, -51.17, n = 1000, source = "bundled")
+  expect_lt(abs(bsb$distance_km[bsb$station_code == "A001"] - 1620), 30)
+
+  expect_error(inmet_nearest(-100, 0), "latitude")
+  expect_error(inmet_nearest(0, 0, n = 0), "positive integer")
 })
 
 test_that("station interface validates options and filters entities", {

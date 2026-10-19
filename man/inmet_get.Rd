@@ -12,29 +12,45 @@ inmet_get(
   variables = NULL,
   start_date = NULL,
   end_date = NULL,
+  drop_empty = TRUE,
   max_tries = 15L,
   force = FALSE,
+  check_updates = TRUE,
   quiet = FALSE
 )
 }
 \arguments{
 \item{years}{Integer vector of years.}
 
-\item{stations}{Optional station codes. Matching is case-insensitive.}
+\item{stations}{Optional station codes, such as \code{"A801"}. Matching is
+case-insensitive. Use \code{\link[=inmet_stations]{inmet_stations()}} or \code{\link[=inmet_nearest]{inmet_nearest()}} to find
+codes.}
 
 \item{dest_dir}{Directory containing \verb{<year>.zip} archives.}
 
 \item{tz}{Output time zone. Defaults to \code{"UTC"}, the time standard used in
-the source files. Any name in \code{\link[=OlsonNames]{OlsonNames()}} is accepted.}
+the source files. Any name in \code{\link[=OlsonNames]{OlsonNames()}} is accepted; only the display
+of the timestamps changes, not the instants they represent.}
 
-\item{variables}{Optional meteorological columns to retain.}
+\item{variables}{Optional measurement columns to retain (see \emph{Columns}).
+Identifier columns are always kept.}
 
 \item{start_date, end_date}{Optional inclusive date limits in \code{YYYY-MM-DD}
 format, interpreted in \code{tz}.}
 
-\item{max_tries}{Maximum download attempts per year.}
+\item{drop_empty}{Drop hours in which every measurement is missing
+(default). INMET files contain such rows for periods when a station was
+not reporting. Use \code{FALSE} to keep them, for example to obtain a regular
+hourly grid.}
 
-\item{force}{Download archives again even if they are valid.}
+\item{max_tries}{Maximum attempts per year.}
+
+\item{force}{Download again even when a valid archive is cached.}
+
+\item{check_updates}{For cached archives of the current and previous year,
+ask the server whether a newer version exists and download it if so.
+INMET keeps appending data to these archives. Older years are never
+re-checked. Requires a (very small) request per recent year.}
 
 \item{quiet}{Suppress progress messages.}
 }
@@ -42,8 +58,9 @@ format, interpreted in \code{tz}.}
 A data frame as documented in \code{\link[=inmet_read]{inmet_read()}}.
 }
 \description{
-This is the recommended high-level interface. It downloads missing annual
-archives, reuses valid cached files, and returns the result of \code{\link[=inmet_read]{inmet_read()}}.
+The recommended high-level interface: downloads missing annual archives
+with \code{\link[=inmet_download]{inmet_download()}}, reuses valid cached files, and returns the result
+of \code{\link[=inmet_read]{inmet_read()}}.
 }
 \examples{
 \donttest{
@@ -51,7 +68,11 @@ weather <- inmet_get(
   years = 2023,
   stations = "A801",
   variables = c("temp_dry_c", "precip_mm"),
-  dest_dir = tempdir()
+  dest_dir = file.path(tempdir(), "rmet")
 )
+daily <- inmet_daily(weather)
 }
+}
+\seealso{
+\code{\link[=inmet_daily]{inmet_daily()}}, \code{\link[=inmet_stations]{inmet_stations()}}, \code{\link[=inmet_nearest]{inmet_nearest()}}
 }

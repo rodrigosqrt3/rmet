@@ -5,44 +5,55 @@
 \title{Download INMET historical data archives}
 \usage{
 inmet_download(
-  years = as.integer(format(Sys.Date(), "\%Y")),
+  years = .current_year(),
   dest_dir = tools::R_user_dir("rmet", "cache"),
   max_tries = 15L,
   quiet = FALSE,
-  force = FALSE
+  force = FALSE,
+  check_updates = TRUE
 )
 }
 \arguments{
-\item{years}{Integer vector of years to download. Available years start in
-2000. Defaults to the current year.}
+\item{years}{Integer vector of years to download. Archives start in 2000.
+Defaults to the current year.}
 
-\item{dest_dir}{Character. Cache directory. It is created when necessary.}
+\item{dest_dir}{Cache directory. It is created when necessary.}
 
-\item{max_tries}{Positive integer. Maximum attempts per year.}
+\item{max_tries}{Maximum attempts per year.}
 
-\item{quiet}{Logical. Suppress progress messages.}
+\item{quiet}{Suppress progress messages.}
 
-\item{force}{Logical. Download again even when a valid archive is cached.}
+\item{force}{Download again even when a valid archive is cached.}
+
+\item{check_updates}{For cached archives of the current and previous year,
+ask the server whether a newer version exists and download it if so.
+INMET keeps appending data to these archives. Older years are never
+re-checked. Requires a (very small) request per recent year.}
 }
 \value{
-Invisibly, a named character vector containing the paths of all
-successfully downloaded archives.
+Invisibly, a named character vector with the paths of the archives
+available after the call.
 }
 \description{
-Downloads one or more annual ZIP files from INMET's historical data portal.
-Complete archives already in the cache are reused. Interrupted downloads are
-kept in a \code{.part} file and resumed on the next attempt.
+Downloads annual ZIP archives (one per year, containing every automatic
+station) from INMET's historical data portal into a local cache.
 }
 \details{
-Files are first written to \verb{<year>.zip.part}. A partial file is never exposed
-as a complete ZIP. After an integrity check succeeds, the file is atomically
-moved to \verb{<year>.zip} whenever the operating system permits it.
+Archives are written to \verb{<year>.zip.part} and only renamed to \verb{<year>.zip}
+after their size has been checked against the size reported by the server
+and the ZIP structure has been validated, so a partial file is never
+mistaken for a complete one. Interrupted downloads resume from where they
+stopped on the next call. A small \verb{<year>.zip.meta} file records the
+server's version information.
+
+The INMET server sends one archive at a time per client, so years are
+downloaded sequentially. Typical archives for recent years are 90 to 110 MB.
 }
 \examples{
 \donttest{
-paths <- inmet_download(2023, dest_dir = tempdir())
+paths <- inmet_download(2023, dest_dir = file.path(tempdir(), "rmet"))
 }
 }
 \seealso{
-\code{\link[=inmet_read]{inmet_read()}}, \code{\link[=inmet_get]{inmet_get()}}, \code{\link[=inmet_extract]{inmet_extract()}}
+\code{\link[=inmet_get]{inmet_get()}}, \code{\link[=inmet_read]{inmet_read()}}, \code{\link[=inmet_cache_status]{inmet_cache_status()}}
 }

@@ -12,38 +12,95 @@ inmet_read(
   variables = NULL,
   start_date = NULL,
   end_date = NULL,
+  drop_empty = TRUE,
   quiet = FALSE
 )
 }
 \arguments{
 \item{years}{Integer vector of years.}
 
-\item{stations}{Optional station codes. Matching is case-insensitive.}
+\item{stations}{Optional station codes, such as \code{"A801"}. Matching is
+case-insensitive. Use \code{\link[=inmet_stations]{inmet_stations()}} or \code{\link[=inmet_nearest]{inmet_nearest()}} to find
+codes.}
 
 \item{dest_dir}{Directory containing \verb{<year>.zip} archives.}
 
 \item{tz}{Output time zone. Defaults to \code{"UTC"}, the time standard used in
-the source files. Any name in \code{\link[=OlsonNames]{OlsonNames()}} is accepted.}
+the source files. Any name in \code{\link[=OlsonNames]{OlsonNames()}} is accepted; only the display
+of the timestamps changes, not the instants they represent.}
 
-\item{variables}{Optional meteorological columns to retain.}
+\item{variables}{Optional measurement columns to retain (see \emph{Columns}).
+Identifier columns are always kept.}
 
 \item{start_date, end_date}{Optional inclusive date limits in \code{YYYY-MM-DD}
 format, interpreted in \code{tz}.}
 
+\item{drop_empty}{Drop hours in which every measurement is missing
+(default). INMET files contain such rows for periods when a station was
+not reporting. Use \code{FALSE} to keep them, for example to obtain a regular
+hourly grid.}
+
 \item{quiet}{Suppress progress messages.}
 }
 \value{
-A data frame. Identifier and station metadata columns are always
-retained when data are available.
+A data frame with one row per station and hour, sorted by station
+code and time. Identifier columns come first: \code{station_code},
+\code{station_name}, \code{region}, \code{state}, \code{latitude}, \code{longitude}, \code{elevation}
+(from each file's header) and \code{datetime} (\code{POSIXct}). Measurement columns
+are numeric; missing values are \code{NA}.
 }
 \description{
-Parses CSV files inside annual INMET archives into a consistent data frame.
+Parses the station CSV files inside annual INMET archives (downloaded with
+\code{\link[=inmet_download]{inmet_download()}}) into one data frame. Files are read directly from the
+ZIP archives; nothing is extracted to disk.
 }
+\section{Repeated files}{
+
+The archive of the current year contains several cumulative versions of
+each station file (for example, January to August and January to
+September). Each station and hour is returned once, taken from the most
+recent version that contains it.
+}
+
+\section{Timestamps}{
+
+Each row is stamped with the \emph{end} of the hour it describes, in UTC. Values
+labelled "previous hour" (such as \code{temp_max_prev_c} and \code{precip_mm})
+summarise the hour ending at \code{datetime}. Use \code{\link[=inmet_daily]{inmet_daily()}} to build daily
+summaries in local time.
+}
+
+\section{Columns}{
+\tabular{lll}{
+   Column \tab Description \tab Unit \cr
+   \code{precip_mm} \tab Precipitation in the previous hour \tab mm \cr
+   \code{pressure_station_hpa} \tab Station-level pressure \tab hPa \cr
+   \code{pressure_max_hpa}, \code{pressure_min_hpa} \tab Pressure extremes, previous hour \tab hPa \cr
+   \code{radiation_kjm2} \tab Global radiation, previous hour \tab kJ/m^2 \cr
+   \code{temp_dry_c} \tab Air (dry-bulb) temperature \tab degC \cr
+   \code{temp_dew_c} \tab Dew-point temperature \tab degC \cr
+   \code{temp_max_prev_c}, \code{temp_min_prev_c} \tab Air temperature extremes, previous hour \tab degC \cr
+   \code{temp_dew_max_c}, \code{temp_dew_min_c} \tab Dew-point extremes, previous hour \tab degC \cr
+   \code{humid_rel_pct} \tab Relative humidity \tab \% \cr
+   \code{humid_rel_max_pct}, \code{humid_rel_min_pct} \tab Humidity extremes, previous hour \tab \% \cr
+   \code{wind_dir_deg} \tab Wind direction \tab degrees \cr
+   \code{wind_gust_ms} \tab Maximum gust \tab m/s \cr
+   \code{wind_speed_ms} \tab Wind speed \tab m/s \cr
+}
+
+
+Unrecognised source columns are kept under a snake_case version of their
+original title.
+}
+
 \examples{
 \donttest{
-df <- inmet_read(2023, stations = "A801", dest_dir = tempdir())
+cache <- file.path(tempdir(), "rmet")
+inmet_download(2023, dest_dir = cache)
+poa <- inmet_read(2023, stations = "A801", dest_dir = cache)
 }
 }
 \seealso{
-\code{\link[=inmet_get]{inmet_get()}}, \code{\link[=inmet_download]{inmet_download()}}, \code{\link[=inmet_stations]{inmet_stations()}}
+\code{\link[=inmet_get]{inmet_get()}}, \code{\link[=inmet_download]{inmet_download()}}, \code{\link[=inmet_daily]{inmet_daily()}},
+\code{\link[=inmet_stations]{inmet_stations()}}
 }

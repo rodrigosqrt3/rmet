@@ -2,8 +2,10 @@
 
 export(inmet_cache_clear)
 export(inmet_cache_status)
+export(inmet_daily)
 export(inmet_download)
 export(inmet_extract)
 export(inmet_get)
+export(inmet_nearest)
 export(inmet_read)
 export(inmet_stations)

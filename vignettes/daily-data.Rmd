@@ -1,0 +1,136 @@
+---
+title: "Time Zones, Missing Hours and Daily Data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Time Zones, Missing Hours and Daily Data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r library}
+library(rmet)
+x <- rmet_example
+```
+
+Hourly INMET data look simple, but three conventions decide whether daily
+values computed from them are right: how the hours are stamped, which day an
+hour belongs to, and what to do with missing hours. This vignette explains each
+one and how `inmet_daily()` handles it.
+
+## 1. Timestamps are UTC and mark the end of the hour
+
+The historical files record time in UTC. `inmet_read()` keeps it that way by
+default, so `datetime` is unambiguous for every station in the country:
+
+```{r utc}
+x$datetime[1:3]
+attr(x$datetime, "tzone")
+```
+
+Many columns describe the hour that *ends* at the timestamp: precipitation is
+the total of the previous hour, and `temp_max_prev_c` and `temp_min_prev_c` are
+the highest and lowest air temperature during that hour. The record stamped
+`03:00 UTC` therefore covers 02:00 to 03:00 UTC, which is 23:00 to midnight in
+Porto Alegre.
+
+Displaying the same instants in local time only changes how they print:
+
+```{r local}
+local <- x$datetime[1:3]
+attr(local, "tzone") <- "America/Sao_Paulo"
+local
+```
+
+## 2. Which day does an hour belong to?
+
+A daily maximum in Brazil should be the maximum of a *local* day. Grouping by
+`as.Date(datetime)` uses UTC days instead, which in Porto Alegre run from
+21:00 to 21:00 local time (22:00 to 22:00 during daylight saving time, which
+Brazil observed until 2019). An evening shower or a hot late afternoon can then
+land on the wrong day.
+
+`inmet_daily()` assigns each record to the local day containing the middle of
+its hour (`datetime` minus 30 minutes). The two choices give different days:
+
+```{r compare-days}
+utc_day <- as.Date(x$datetime)
+local_day <- as.Date(x$datetime - 1800, tz = "America/Sao_Paulo")
+mean(utc_day != local_day)
+```
+
+One hour in six (the records stamped 00:00 to 03:00 UTC) is placed on a
+different day, and the differences matter for daily totals and extremes:
+
+```{r compare-values}
+wrong <- tapply(x$precip_mm, utc_day, sum)
+right <- inmet_daily(x, min_hours = 1)
+right <- setNames(right$precip_mm, right$date)
+common <- intersect(names(wrong), names(right))
+summary(abs(wrong[common] - right[common]))
+```
+
+For stations in other time zones (for example Amazonas, Acre, or Mato Grosso)
+pass the local zone explicitly, such as `tz = "America/Manaus"`. Use
+`tz = "UTC"` when you want UTC days on purpose.
+
+## 3. Missing hours
+
+INMET files contain rows for every hour of the year, including hours when a
+station was not reporting. By default `inmet_read()` drops rows in which *every*
+measurement is missing (`drop_empty = FALSE` keeps them). Individual variables
+can still be missing in the rows that remain.
+
+A daily total over a day with half its hours missing is not a daily total.
+`inmet_daily()` therefore computes a variable only when it has at least
+`min_hours` valid hourly values that day (20 by default), and reports the
+number of hourly records in `n_hours`:
+
+```{r completeness}
+daily <- inmet_daily(x)
+table(cut(daily$n_hours, c(0, 12, 19, 23, 25), right = TRUE))
+daily[daily$n_hours < 20, c("date", "n_hours", "temp_max_c", "precip_mm")]
+```
+
+Choose `min_hours` to suit the variable and the analysis: precipitation totals
+are sensitive to every missing hour, while a daily maximum of temperature is
+usually reached in the afternoon. Radiation is an exception: it is missing at
+night at most stations, so `radiation_mj_m2` sums whatever daytime values are
+present (see `?inmet_daily`).
+
+## 4. Which temperature columns?
+
+The hourly files contain both the air temperature at the top of the hour
+(`temp_dry_c`) and its extremes during the previous hour
+(`temp_max_prev_c`, `temp_min_prev_c`). The daily maximum and minimum should
+come from the extremes; the instantaneous values miss the peaks between
+readings:
+
+```{r extremes}
+from_extremes <- inmet_daily(x)$temp_max_c
+from_hourly <- inmet_daily(x[, setdiff(names(x), "temp_max_prev_c")])$temp_max_c
+summary(from_extremes - from_hourly)
+```
+
+At Porto Alegre in 2023 the hourly readings underestimate the daily maximum by
+about half a degree on average, and by more than two degrees on some days.
+
+`inmet_daily()` uses the extremes when they are present and falls back to
+`temp_dry_c` otherwise.
+
+## 5. Quality control is up to you
+
+INMET labels automatic-station observations as raw data. Before relying on
+daily values, check for impossible values, flat-lining sensors, and sudden
+jumps, for example:
+
+```{r qc}
+summary(x$temp_dry_c)
+sum(x$temp_max_prev_c < x$temp_min_prev_c, na.rm = TRUE)
+```
+
+Comparing with nearby stations (`inmet_nearest()`) is often the most effective
+check for isolated errors.

@@ -1,11 +1,11 @@
 #' Download and read INMET data in one call
 #'
-#' This is the recommended high-level interface. It downloads missing annual
-#' archives, reuses valid cached files, and returns the result of [inmet_read()].
+#' The recommended high-level interface: downloads missing annual archives
+#' with [inmet_download()], reuses valid cached files, and returns the result
+#' of [inmet_read()].
 #'
 #' @inheritParams inmet_read
-#' @param max_tries Maximum download attempts per year.
-#' @param force Download archives again even if they are valid.
+#' @inheritParams inmet_download
 #'
 #' @return A data frame as documented in [inmet_read()].
 #'
@@ -15,9 +15,11 @@
 #'   years = 2023,
 #'   stations = "A801",
 #'   variables = c("temp_dry_c", "precip_mm"),
-#'   dest_dir = tempdir()
+#'   dest_dir = file.path(tempdir(), "rmet")
 #' )
+#' daily <- inmet_daily(weather)
 #' }
+#' @seealso [inmet_daily()], [inmet_stations()], [inmet_nearest()]
 #' @export
 inmet_get <- function(
     years,
@@ -27,36 +29,27 @@ inmet_get <- function(
     variables = NULL,
     start_date = NULL,
     end_date = NULL,
+    drop_empty = TRUE,
     max_tries = 15L,
     force = FALSE,
+    check_updates = TRUE,
     quiet = FALSE
 ) {
   years <- .validate_years(years)
   dest_dir <- .validate_directory(dest_dir, "dest_dir")
   inmet_download(
-    years = years,
-    dest_dir = dest_dir,
-    max_tries = max_tries,
-    quiet = quiet,
-    force = force
+    years = years, dest_dir = dest_dir, max_tries = max_tries, quiet = quiet,
+    force = force, check_updates = check_updates
   )
-  missing <- years[!vapply(
-    file.path(dest_dir, paste0(years, ".zip")),
-    .is_valid_zip,
-    logical(1)
-  )]
-  if (length(missing)) {
-    stop("Could not obtain valid archive(s) for: ", paste(missing, collapse = ", "),
-         call. = FALSE)
+  available <- vapply(file.path(dest_dir, paste0(years, ".zip")), .is_valid_zip,
+                      logical(1), USE.NAMES = FALSE)
+  if (!all(available)) {
+    stop("Could not obtain valid archive(s) for: ",
+         paste(years[!available], collapse = ", "), call. = FALSE)
   }
   inmet_read(
-    years = years,
-    stations = stations,
-    dest_dir = dest_dir,
-    tz = tz,
-    variables = variables,
-    start_date = start_date,
-    end_date = end_date,
-    quiet = quiet
+    years = years, stations = stations, dest_dir = dest_dir, tz = tz,
+    variables = variables, start_date = start_date, end_date = end_date,
+    drop_empty = drop_empty, quiet = quiet
   )
 }

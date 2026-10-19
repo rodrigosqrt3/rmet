@@ -1,102 +1,87 @@
 # rmet
 
 [![CRAN status](https://www.r-pkg.org/badges/version/rmet)](https://CRAN.R-project.org/package=rmet)
-[![R-CMD-check](https://github.com/rodrigosqrt3/rmet/actions/workflows/r.yml/badge.svg)](https://github.com/rodrigosqrt3/rmet/actions/workflows/r.yml)
 [![codecov](https://codecov.io/gh/rodrigosqrt3/rmet/branch/main/graph/badge.svg)](https://app.codecov.io/gh/rodrigosqrt3/rmet)
 
-`rmet` downloads and parses historical hourly weather data published by
-Brazil's National Institute of Meteorology (INMET). It handles format changes
-across years, inconsistent encodings and column names, interrupted downloads,
-and local caching.
+`rmet` downloads and parses historical hourly weather data from the automatic
+stations of Brazil's National Institute of Meteorology (INMET). It handles the
+format and encoding changes across years, validates and resumes downloads,
+keeps a local cache up to date, and builds daily summaries in local time.
+
+> **Upgrading from rmet 0.1.0 or 0.2.0?** The station catalogue bundled with
+> those versions was incorrect (most station codes pointed to the wrong
+> station). Please upgrade and re-check any station metadata obtained offline
+> or with `source = "bundled"`. See [NEWS](NEWS.md) for all corrections.
 
 ## Installation
 
-Install the released version from CRAN:
-
 ```r
 install.packages("rmet")
-```
 
-Install the development version from GitHub:
-
-```r
+# development version
 # install.packages("pak")
 pak::pak("rodrigosqrt3/rmet")
 ```
 
 ## Quick start
 
-The recommended interface downloads missing archives, reuses valid cached
-files, and reads the requested data:
-
 ```r
 library(rmet)
 
-weather <- inmet_get(
-  years = 2023:2025,
-  stations = "A801",
-  variables = c("temp_dry_c", "precip_mm", "humid_rel_pct")
-)
+# stations near Porto Alegre
+inmet_nearest(latitude = -30.03, longitude = -51.23, n = 3)
+
+# hourly data (archives are downloaded once and cached)
+weather <- inmet_get(years = 2022:2024, stations = "A801")
+
+# daily summaries per local day
+daily <- inmet_daily(weather)
 ```
 
-Timestamps are returned in UTC by default because the historical source files
-use UTC. Convert their display explicitly when needed:
+Timestamps are returned in UTC, as in the source files, and mark the end of
+the hour each row describes. `inmet_daily()` assigns hours to local days
+(Brasilia time by default) and only reports a daily value when enough hours are
+available.
 
-```r
-weather_sp <- inmet_get(2025, stations = "A801", tz = "America/Sao_Paulo")
-```
-
-## Find stations
-
-`inmet_stations()` obtains the current official automatic-station catalogue,
-caches it locally, refreshes it periodically, and falls back to a cached or
-bundled catalogue when offline.
-
-```r
-stations <- inmet_stations(state = "RS", status = "Operante")
-stations[, c("station_code", "station_name", "status", "start_date")]
-
-# Force a catalogue update
-stations <- inmet_stations(refresh = TRUE)
-```
-
-The catalogue can also be filtered by region, state, station name or code,
-operational status, and provider entity.
-
-## Lower-level workflow
-
-```r
-inmet_download(2024:2025)
-inmet_cache_status()
-
-weather <- inmet_read(
-  years = 2024:2025,
-  stations = c("A801", "A802"),
-  start_date = "2024-06-01",
-  end_date = "2024-08-31"
-)
-```
+## Main functions
 
 | Function | Purpose |
 |---|---|
-| `inmet_get()` | Download and read data in one call. |
-| `inmet_download()` | Reliably download and cache annual ZIP archives. |
-| `inmet_read()` | Parse cached archives into consistent data frames. |
-| `inmet_extract()` | Extract original CSV files. |
-| `inmet_stations()` | Search the current official station catalogue. |
-| `inmet_cache_status()` | Inspect complete and partial cached downloads. |
-| `inmet_cache_clear()` | Remove cached archives and catalogue data. |
+| `inmet_get()` | Download (if needed) and read hourly data in one call. |
+| `inmet_daily()` | Daily summaries per station and local day. |
+| `inmet_stations()` | Search the official station catalogue. |
+| `inmet_nearest()` | Find the stations closest to a location. |
+| `inmet_download()` | Download, validate and update annual ZIP archives. |
+| `inmet_read()` | Read cached archives into a data frame. |
+| `inmet_extract()` | Extract the original CSV files. |
+| `inmet_cache_status()`, `inmet_cache_clear()` | Manage the cache. |
+
+## How it works
+
+* **Catalogue.** `inmet_stations()` uses INMET's station API, cached for 30
+  days, and falls back to a dated snapshot of the official catalogue shipped
+  with the package.
+* **Downloads.** INMET publishes one archive per year (about 100 MB for recent
+  years) with every station. Downloads go to a `.part` file, are checked
+  against the size reported by the server and resumed after interruptions.
+  Archives of the current and previous year are re-downloaded when INMET
+  publishes a newer version.
+* **Parsing.** Files are read directly from the archives. Date and hour
+  formats, Latin-1 and UTF-8 encodings, decimal commas, `-9999` sentinels and
+  damaged header text from different years are handled; columns get stable
+  English names (see `?inmet_read`).
 
 ## Data quality
 
 INMET describes automatic-station observations as raw data that have not
-undergone consistency validation. `rmet` standardizes structure and missing
+undergone consistency validation. `rmet` standardises structure and missing
 values but does not certify that measurements are meteorologically plausible.
-Users should apply quality-control rules appropriate to their analysis.
+See `vignette("daily-data", package = "rmet")` for time-zone, missing-data and
+quality-control advice.
 
 ## Data source and license
 
-Data are retrieved from INMET and are not redistributed by `rmet`. Package
-code is licensed under GPL (>= 3).
-
-Please report reproducible problems through the package's GitHub issue tracker.
+Data are retrieved from INMET and are not redistributed by `rmet`, apart from
+the station catalogue snapshot and a one-station example dataset. Package code
+is licensed under GPL (>= 3). Please report problems at
+<https://github.com/rodrigosqrt3/rmet/issues>.

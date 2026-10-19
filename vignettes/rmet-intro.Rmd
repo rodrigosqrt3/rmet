@@ -9,347 +9,152 @@ vignette: >
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
-  collapse  = TRUE,
-  comment   = "#>",
+  collapse = TRUE,
+  comment = "#>",
   fig.width = 7,
   fig.height = 4,
   fig.align = "center",
-  dpi = 150,
-  warning = FALSE,
-  message = FALSE
+  dpi = 150
 )
 ```
 
-Brazil's National Institute of Meteorology (INMET) maintains a network of
-automatic weather stations that record hourly observations across the country.
-The raw data are distributed as annual ZIP archives containing CSV files, one
-per station, with formatting inconsistencies that vary across years (e.g., different
-date formats, trailing semicolons, phantom columns, and mixed encodings).
-`rmet` automates the full pipeline: downloading those archives, resolving
-their structural quirks, and returning a clean, analysis-ready `data.frame`.
-
-## Installation
+Brazil's National Institute of Meteorology (INMET) runs a network of more than
+600 automatic weather stations that record hourly observations. Historical
+data are published as one ZIP archive per year, holding one CSV file per
+station, with formats that changed several times over the years. `rmet`
+downloads and caches those archives, reads them into consistent data frames,
+and summarises the hourly data into daily values.
 
 ```{r install, eval = FALSE}
 install.packages("rmet")
-
-# Development version:
-# install.packages("pak")
-# pak::pak("rodrigosqrt3/rmet")
 ```
 
 ```{r library}
 library(rmet)
 ```
 
-## Step 1 — Browse the station catalogue
+## Find a station
 
-`inmet_stations()` downloads the current official automatic-station catalogue
-and caches it locally. Stale catalogues are periodically refreshed. If the
-service is unavailable, the package falls back to an older cache or to a
-smaller bundled catalogue. You can filter by state, operational status,
-provider, or station name before downloading weather archives.
+`inmet_stations()` returns the official catalogue of automatic stations. It is
+downloaded from INMET once and cached; when INMET cannot be reached, a snapshot
+bundled with the package is used instead.
 
-```{r stations, eval = FALSE}
-stations <- inmet_stations(state = "RS", status = "Operante")
-head(stations[, c("station_code", "station_name", "latitude",
-                  "longitude", "elevation", "status")])
+```{r stations}
+rs <- inmet_stations(state = "RS", status = "Operante", source = "bundled")
+head(rs[, c("station_code", "station_name", "latitude", "longitude", "start_date")])
 ```
 
-Station **A801** is the Porto Alegre automatic station, located at roughly
-−30.05 °S, −51.17 °W, 46.97 m above sea level.
+(`source = "bundled"` keeps this vignette reproducible offline. In your own
+code, leave `source` at its default to get the current catalogue.)
 
-## Step 2 — Download annual archives
+To find the stations closest to a place, use `inmet_nearest()`:
 
-`inmet_download()` fetches the annual ZIP files from INMET's servers and saves
-them to a persistent local cache. Downloads are resumable: if a connection
-drops, re-running the same call picks up where it left off.
-
-```{r download, eval = FALSE}
-# Downloads the 2023 archive (~70 MB) to the default cache directory.
-# Safe to re-run — skips files that are already complete.
-inmet_download(2023)
+```{r nearest}
+inmet_nearest(latitude = -30.03, longitude = -51.23, n = 3, source = "bundled")[
+  , c("station_code", "station_name", "distance_km", "start_date")
+]
 ```
 
-You can inspect what is already cached at any time:
+Station **A801** (Porto Alegre - Jardim Botanico) has been operating since
+September 2000.
 
-```{r cache, eval = FALSE}
-inmet_cache_status()
-```
+## Get hourly data
 
-## Step 3 — Read data into R
+`inmet_get()` downloads any missing archives and reads the stations you ask
+for:
 
-`inmet_read()` parses the ZIP archives directly — no manual extraction needed.
-It normalises column names, converts measurement columns to `numeric`, and
-parses timestamps. Timestamps remain in UTC by default; pass an Olson time-zone
-name such as `tz = "America/Sao_Paulo"` when another display is required.
-
-```{r read, eval = FALSE}
-df <- inmet_read(
-  years      = 2023,
-  stations   = "A801",
-  start_date = "2023-01-01",
-  end_date   = "2023-12-31"
+```{r get, eval = FALSE}
+poa <- inmet_get(
+  years = 2023,
+  stations = "A801",
+  variables = c("temp_dry_c", "temp_max_prev_c", "temp_min_prev_c", "precip_mm")
 )
 ```
 
-The examples below use the package's built-in sample dataset, which contains
-one year of hourly observations from station A801 (Porto Alegre, 2023).
+The first call downloads the archive for each year, around 100 MB for recent
+years; later calls read from the cache. For the current and the previous year,
+`rmet` also checks whether INMET has published a newer version of the archive
+(INMET keeps adding data to them) and downloads it if so.
 
-```{r load-data}
-df <- rmet_example
-str(df[, c("datetime", "station_code", "state",
-           "temp_dry_c", "precip_mm", "humid_rel_pct",
-           "wind_speed_ms", "pressure_station_hpa")])
+The package ships the result of `inmet_get(2023, stations = "A801")` as
+`rmet_example`, which the rest of this vignette uses:
+
+```{r example}
+dim(rmet_example)
+head(rmet_example[, c("datetime", "temp_dry_c", "temp_max_prev_c", "precip_mm")])
 ```
 
-## Exploring the data
+Timestamps are in **UTC**, as in the source files, and each row describes the
+hour *ending* at `datetime`. Pass `tz = "America/Sao_Paulo"` (or any other
+Olson name) to `inmet_get()` or `inmet_read()` to display them in local time.
 
-### Daily aggregation
+## Daily summaries
 
-Hourly data are often most useful after aggregating to daily summaries.
+Most analyses need daily values. `inmet_daily()` assigns each hour to the
+correct local day and requires a minimum number of valid hours per day
+(20 by default):
 
-```{r daily-agg}
-df$date <- as.Date(df$datetime)
-
-daily <- aggregate(
-  cbind(temp_dry_c, precip_mm, humid_rel_pct, wind_speed_ms) ~ date,
-  data = df,
-  FUN  = function(x) mean(x, na.rm = TRUE)
-)
-
-daily$temp_max <- aggregate(temp_dry_c ~ date, df, max, na.rm = TRUE)$temp_dry_c
-daily$temp_min <- aggregate(temp_dry_c ~ date, df, min, na.rm = TRUE)$temp_dry_c
-daily$precip   <- aggregate(precip_mm  ~ date, df, sum, na.rm = TRUE)$precip_mm
-daily$month    <- as.integer(format(daily$date, "%m"))
+```{r daily}
+daily <- inmet_daily(rmet_example)
+head(daily[, c("date", "n_hours", "temp_max_c", "temp_min_c", "precip_mm")])
 ```
 
-### Temperature series
+The first row is 31 December 2022: the records stamped 00:00 to 03:00 UTC on
+1 January 2023 describe the last hours of 31 December in Porto Alegre. With
+only four hours of data that day's values are `NA`. See `vignette("daily-data", package = "rmet")` for the details
+and why `as.Date(datetime)` gives the wrong days.
 
-```{r plot-temp, fig.cap = "Daily temperature range at Porto Alegre (A801) — 2023."}
-col_max  <- "#E74C3C"
-col_min  <- "#3498DB"
-col_band <- "#F1948A"
-
-oldpar <- par(mar = c(4, 4.5, 3, 1), family = "sans", cex.lab = 0.95, cex.axis = 0.85)
-
-plot(
-  daily$date, daily$temp_max,
-  type = "n",
-  ylim = range(c(daily$temp_min, daily$temp_max), na.rm = TRUE),
-  xlab = "",
-  ylab = "Temperature (\u00b0C)",
-  main = "Daily Temperature Range \u2014 Porto Alegre (A801), 2023",
-  axes = FALSE
-)
-
-polygon(
-  c(daily$date, rev(daily$date)),
-  c(daily$temp_max, rev(daily$temp_min)),
-  col    = adjustcolor(col_band, alpha.f = 0.35),
-  border = NA
-)
-
-lines(daily$date, daily$temp_max, col = col_max, lwd = 1.2)
-lines(daily$date, daily$temp_min, col = col_min, lwd = 1.2)
-
-axis(1,
-     at     = seq(min(daily$date), max(daily$date), by = "2 months"),
-     labels = format(seq(min(daily$date), max(daily$date), by = "2 months"), "%b"),
-     las    = 1)
-axis(2, las = 1)
-box(col = "grey80")
-
-legend(
-  "topright",
-  legend = c("Daily max", "Daily min"),
-  col    = c(col_max, col_min),
-  lwd    = 2,
-  bty    = "n",
-  cex    = 0.85
-)
-
+```{r plot-temp, fig.cap = "Daily maximum and minimum temperature at Porto Alegre (A801), 2023."}
+daily <- daily[format(daily$date, "%Y") == "2023", ]
+oldpar <- par(mar = c(4, 4.5, 2, 1))
+plot(daily$date, daily$temp_max_c, type = "l", col = "#C0392B",
+     ylim = range(daily$temp_min_c, daily$temp_max_c, na.rm = TRUE),
+     xlab = "", ylab = "Temperature (°C)")
+lines(daily$date, daily$temp_min_c, col = "#2471A3")
+legend("topright", c("Maximum", "Minimum"), col = c("#C0392B", "#2471A3"),
+       lwd = 1, bty = "n")
 par(oldpar)
 ```
 
-### Precipitation
-
-```{r plot-precip, fig.cap = "Daily accumulated precipitation at Porto Alegre (A801) — 2023."}
-col_prec <- "#3498DB"
-
-oldpar <- par(mar = c(4, 4.5, 3, 1), family = "sans", cex.lab = 0.95, cex.axis = 0.85)
-
-barplot(
-  daily$precip,
-  col    = adjustcolor(col_prec, alpha.f = 0.75),
-  border = NA,
-  space  = 0,
-  xlab   = "",
-  ylab   = "Precipitation (mm)",
-  main   = "Daily Precipitation \u2014 Porto Alegre (A801), 2023",
-  axes   = FALSE
-)
-
-axis(2, las = 1)
-
-# Month labels on x axis
-month_starts <- which(!duplicated(format(daily$date, "%m")))
-axis(1,
-     at     = month_starts,
-     labels = format(daily$date[month_starts], "%b"),
-     tick   = FALSE)
-
-box(col = "grey80")
-
+```{r plot-precip, fig.cap = "Monthly precipitation at Porto Alegre (A801), 2023."}
+monthly <- tapply(daily$precip_mm, format(daily$date, "%m"), sum, na.rm = TRUE)
+oldpar <- par(mar = c(4, 4.5, 2, 1))
+barplot(monthly, names.arg = month.abb, col = "#5DADE2", border = NA,
+        ylab = "Precipitation (mm)")
 par(oldpar)
 ```
 
-### Monthly temperature boxplots
+Days with missing precipitation hours are `NA` in `daily$precip_mm`, so these
+monthly totals are lower bounds when data are missing; check `n_hours`.
 
-```{r plot-seasonal, fig.cap = "Seasonal cycle of hourly dry-bulb temperature at Porto Alegre (A801) — 2023."}
-col_box <- "#E74C3C"
+## Step-by-step workflow
 
-df$month <- as.integer(format(df$datetime, "%m"))
-month_labels <- c("Jan","Feb","Mar","Apr","May","Jun",
-                  "Jul","Aug","Sep","Oct","Nov","Dec")
+`inmet_get()` combines three steps that can also be run separately:
 
-oldpar <- par(mar = c(4, 4.5, 3, 1), family = "sans", cex.lab = 0.95, cex.axis = 0.85)
-
-boxplot(
-  temp_dry_c ~ month,
-  data     = df,
-  col      = adjustcolor(col_box, alpha.f = 0.40),
-  border   = col_box,
-  names    = month_labels,
-  xlab     = "Month",
-  ylab     = "Dry-bulb temperature (\u00b0C)",
-  main     = "Temperature Seasonality \u2014 Porto Alegre (A801), 2023",
-  outline  = FALSE,
-  whisklty = 1,
-  medlwd   = 2,
-  axes     = FALSE
-)
-
-axis(1, at = 1:12, labels = month_labels, las = 1)
-axis(2, las = 1)
-box(col = "grey80")
-
-par(oldpar)
-```
-
-### Wind speed distribution
-
-```{r plot-wind, fig.cap = "Distribution of hourly wind speed at Porto Alegre (A801) — 2023."}
-col_wind <- "#2C3E50"
-
-ws <- df$wind_speed_ms[!is.na(df$wind_speed_ms) & df$wind_speed_ms >= 0]
-
-oldpar <- par(mar = c(4, 4.5, 3, 1), family = "sans", cex.lab = 0.95, cex.axis = 0.85)
-
-h <- hist(ws, breaks = 30, plot = FALSE)
-
-plot(h,
-     col    = adjustcolor(col_wind, alpha.f = 0.55),
-     border = "white",
-     xlab   = "Wind speed (m/s)",
-     ylab   = "Frequency",
-     main   = "Wind Speed Distribution \u2014 Porto Alegre (A801), 2023",
-     axes   = FALSE)
-
-abline(v   = mean(ws),
-       col = "#E74C3C",
-       lwd = 2,
-       lty = 2)
-
-axis(1, las = 1)
-axis(2, las = 1)
-box(col = "grey80")
-
-legend("topright",
-       legend = paste0("Mean: ", round(mean(ws), 1), " m/s"),
-       col    = "#E74C3C",
-       lwd    = 2,
-       lty    = 2,
-       bty    = "n",
-       cex    = 0.85)
-
-par(oldpar)
-```
-
-## Filtering and subsetting
-
-`inmet_read()` applies filters to each station file before combining all
-stations and years, reducing the size of the final object held in memory.
-
-```{r filter, eval = FALSE}
-# Only summer months (December–February), temperature and humidity
-summer <- inmet_read(
-  years      = 2023,
-  stations   = "A801",
-  start_date = "2023-12-01",
-  end_date   = "2023-12-31",
-  variables  = c("temp_dry_c", "humid_rel_pct")
-)
-
-# Multiple stations across Rio Grande do Sul
-rs_stations <- inmet_read(
-  years    = 2023,
-  stations = c("A801", "A802", "A827"),
+```{r steps, eval = FALSE}
+inmet_download(2020:2023)        # download (or update) archives
+inmet_cache_status()             # what is cached, and how large
+weather <- inmet_read(
+  years = 2020:2023,
+  stations = c("A801", "A832"),
+  start_date = "2020-06-01",
+  end_date = "2023-08-31",
   variables = c("temp_dry_c", "precip_mm")
 )
 ```
 
-## Extracting CSV files
+Reading only the stations and variables you need keeps memory use low: one
+year of every station is about four million rows. `inmet_extract()` copies the
+original CSV files out of the archives if you need them for other software, and
+`inmet_cache_clear()` frees disk space.
 
-If you need the raw CSV files for use in other tools, `inmet_extract()` copies
-them out of the ZIP archives to a directory of your choice.
+## Data quality
 
-```{r extract, eval = FALSE}
-inmet_extract(
-  years   = 2023,
-  out_dir = file.path(tempdir(), "inmet_csv")
-)
-```
+INMET publishes automatic-station data as raw measurements without
+consistency checks. `rmet` standardises structure, names, units and missing
+values, but it does not judge whether a value is meteorologically plausible.
+Apply quality control appropriate to your analysis, for instance range checks
+and comparison with neighbouring stations, before drawing conclusions.
 
-## Cache management
-
-```{r cache-mgmt, eval = FALSE}
-# See what is cached and how large each file is
-inmet_cache_status()
-
-# Remove all cached archives to free disk space
-inmet_cache_clear()
-```
-
-## Variable reference
-
-The table below lists all meteorological columns returned by `inmet_read()`.
-
-| Column | Description | Unit |
-|---|---|---|
-| `temp_dry_c` | Dry-bulb (air) temperature | °C |
-| `temp_max_c` | Maximum air temperature reported by the source format | °C |
-| `temp_min_c` | Minimum air temperature reported by the source format | °C |
-| `temp_max_prev_c` | Maximum air temperature in the previous hour | °C |
-| `temp_min_prev_c` | Minimum air temperature in the previous hour | °C |
-| `temp_dew_c` | Dew-point temperature | °C |
-| `temp_dew_max_c` | Maximum dew-point temperature | °C |
-| `temp_dew_min_c` | Minimum dew-point temperature | °C |
-| `precip_mm` | Total precipitation | mm |
-| `pressure_station_hpa` | Atmospheric pressure at station level | hPa |
-| `pressure_max_hpa` | Maximum pressure (previous hour) | hPa |
-| `pressure_min_hpa` | Minimum pressure (previous hour) | hPa |
-| `humid_rel_pct` | Relative humidity | % |
-| `humid_rel_max_pct` | Maximum relative humidity (previous hour) | % |
-| `humid_rel_min_pct` | Minimum relative humidity (previous hour) | % |
-| `wind_speed_ms` | Wind speed | m/s |
-| `wind_dir_deg` | Wind direction | degrees |
-| `wind_gust_ms` | Wind gust speed | m/s |
-| `radiation_kjm2` | Global solar radiation | kJ/m² |
-
-## Data source
-
-All data are provided by INMET and are freely available. The package does not
-redistribute raw data; it only automates retrieval and parsing of files hosted
-by INMET. Automatic-station observations are raw measurements and should be
-subjected to quality-control rules appropriate to the intended analysis.
+The variables returned and their units are listed in `?inmet_read`; daily
+variables are described in `?inmet_daily`.

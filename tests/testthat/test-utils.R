@@ -124,7 +124,7 @@ test_that("small utility helpers cover edge cases", {
     packageVersion = function(...) stop("not installed"),
     .package = "utils"
   )
-  expect_match(rmet:::.rmet_user_agent(), "rmet/0.2.0")
+  expect_match(rmet:::.rmet_user_agent(), "rmet/0.3.0")
 
   expect_equal(
     rmet:::.inmet_id_columns(),
