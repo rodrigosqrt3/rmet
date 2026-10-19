@@ -109,6 +109,7 @@ test_that("a failed fallback extraction is reported", {
 test_that("daily variables without any valid value are NA", {
   x <- data.frame(
     station_code = "A801",
+    state = "RS",
     datetime = as.POSIXct("2020-01-01 04:00", tz = "UTC") + 3600 * (0:23),
     precip_mm = NA_real_,
     temp_dry_c = 20

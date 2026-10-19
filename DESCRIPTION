@@ -13,9 +13,10 @@ Description: Automates the download and processing of historical hourly
     downloads that detect updated archives, and a fast parser for the
     formatting and encoding inconsistencies of raw CSV files across years. It
     returns analysis-ready data frames with standardized column names and UTC
-    timestamps, and builds daily summaries in local time with explicit rules
-    for incomplete days. Data are retrieved from
-    <https://portal.inmet.gov.br/dadoshistoricos> and
+    timestamps. It flags implausible values with transparent quality-control
+    checks, reports data completeness, and builds daily summaries in each
+    station's local time with explicit rules for incomplete days. Data are
+    retrieved from <https://portal.inmet.gov.br/dadoshistoricos> and
     <https://apitempo.inmet.gov.br/estacoes/T>.
 Depends: R (>= 4.0.0)
 Encoding: UTF-8
@@ -33,6 +34,7 @@ Suggests:
     spelling,
     testthat (>= 3.0.0),
     knitr,
-    rmarkdown
+    rmarkdown,
+    sf
 VignetteBuilder: knitr
 Config/testthat/edition: 3

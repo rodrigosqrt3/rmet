@@ -56,7 +56,14 @@ inmet_nearest(latitude = -30.03, longitude = -51.23, n = 3, source = "bundled")[
 ```
 
 Station **A801** (Porto Alegre - Jardim Botanico) has been operating since
-September 2000.
+September 2000. The catalogue also gives each station's local `time_zone`.
+
+With the **sf** package installed, `inmet_as_sf()` turns the catalogue (or
+any result with coordinates) into spatial points:
+
+```{r map, eval = requireNamespace("sf", quietly = TRUE), fig.cap = "Operating automatic stations in Rio Grande do Sul, by elevation."}
+plot(inmet_as_sf(rs)["elevation"], pch = 19, main = "")
+```
 
 ## Get hourly data
 
@@ -88,14 +95,26 @@ Timestamps are in **UTC**, as in the source files, and each row describes the
 hour *ending* at `datetime`. Pass `tz = "America/Sao_Paulo"` (or any other
 Olson name) to `inmet_get()` or `inmet_read()` to display them in local time.
 
+## Quality control and completeness
+
+INMET publishes these observations as raw data. `inmet_qc()` flags values
+that are physically impossible, internally inconsistent, isolated spikes, or
+stuck at the same value, and `inmet_completeness()` shows how many valid hours
+each month has:
+
+```{r qc}
+checked <- inmet_qc(rmet_example)
+head(inmet_completeness(checked, variables = c("temp_dry_c", "precip_mm")), 3)
+```
+
 ## Daily summaries
 
 Most analyses need daily values. `inmet_daily()` assigns each hour to the
-correct local day and requires a minimum number of valid hours per day
-(20 by default):
+station's local day, ignores values flagged by `inmet_qc()`, and requires a
+minimum number of valid hours per day (20 by default):
 
 ```{r daily}
-daily <- inmet_daily(rmet_example)
+daily <- inmet_daily(checked)
 head(daily[, c("date", "n_hours", "temp_max_c", "temp_min_c", "precip_mm")])
 ```
 
@@ -151,10 +170,9 @@ original CSV files out of the archives if you need them for other software, and
 ## Data quality
 
 INMET publishes automatic-station data as raw measurements without
-consistency checks. `rmet` standardises structure, names, units and missing
-values, but it does not judge whether a value is meteorologically plausible.
-Apply quality control appropriate to your analysis, for instance range checks
-and comparison with neighbouring stations, before drawing conclusions.
+consistency checks. `inmet_qc()` catches gross errors, but it cannot judge
+every value. Apply further checks appropriate to your analysis, such as
+comparison with neighbouring stations, before drawing conclusions.
 
 The variables returned and their units are listed in `?inmet_read`; daily
 variables are described in `?inmet_daily`.

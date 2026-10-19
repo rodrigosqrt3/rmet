@@ -42,8 +42,19 @@
 * `inmet_daily()` builds daily summaries per station and local day: maximum
   and minimum temperature from the previous-hour extremes, means, totals,
   gusts and radiation, with a `min_hours` completeness rule and an `n_hours`
-  column.
+  column. By default (`tz = "auto"`) each station uses its own local time.
+* `inmet_qc()` flags implausible hourly values: out of physical range,
+  internally inconsistent, isolated spikes, and stuck sensors. Flags are
+  stored in `<variable>_flag` columns (or the values removed), summarised in
+  the `qc_summary` attribute, and respected by `inmet_daily()` and
+  `inmet_completeness()`.
+* `inmet_completeness()` reports the percentage of valid hours per station
+  and month or year.
+* `inmet_timezone()` returns the historical local time zone of Brazilian
+  stations; `inmet_stations()` gains a `time_zone` column.
 * `inmet_nearest()` finds the stations closest to a location.
+* `inmet_as_sf()` converts stations or data to `sf` points (requires the
+  suggested package sf).
 * `inmet_read()` and `inmet_get()` gain `drop_empty`; `FALSE` keeps hours in
   which every measurement is missing.
 * `inmet_extract()` gains `stations` to extract only some station files.
@@ -65,7 +76,9 @@
 ## Internal
 
 * Code reorganised into `validate.R`, `parse.R`, `read.R`, `download.R`,
-  `stations.R`, `daily.R` and `cache.R`, with comments on the INMET format.
+  `stations.R`, `daily.R`, `qc.R`, `completeness.R`, `timezone.R`,
+  `spatial.R` and `cache.R`, with comments on the INMET format. `utils.R` was
+  removed.
 
 # rmet 0.2.0
 

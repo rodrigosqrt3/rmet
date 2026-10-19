@@ -4,15 +4,17 @@
 \alias{inmet_daily}
 \title{Daily summaries of hourly INMET data}
 \usage{
-inmet_daily(x, tz = "America/Sao_Paulo", min_hours = 20L)
+inmet_daily(x, tz = "auto", min_hours = 20L)
 }
 \arguments{
 \item{x}{A data frame as returned by \code{\link[=inmet_read]{inmet_read()}}, with at least a
 \code{datetime} column.}
 
-\item{tz}{Time zone defining the calendar day. Defaults to Brasilia time.
-Use, for example, \code{"America/Manaus"} for stations in Amazonas, or
-\code{"UTC"} for UTC days.}
+\item{tz}{Time zone defining the calendar day. \code{"auto"} (default) uses each
+station's own local time, from its state and longitude (see
+\code{\link[=inmet_timezone]{inmet_timezone()}}); this needs the \code{state} column. Otherwise, any name in
+\code{\link[=OlsonNames]{OlsonNames()}}, for example \code{"America/Sao_Paulo"}, or \code{"UTC"} for UTC
+days.}
 
 \item{min_hours}{Minimum number of non-missing hourly values a variable
 needs on a given day; otherwise its daily value is \code{NA}. Local days have
@@ -21,9 +23,9 @@ until 2019).}
 }
 \value{
 A data frame with one row per station and day, sorted by station
-and date, containing the station identifiers, \code{date}, \code{n_hours} (number of
-hourly records for that day) and the daily variables that can be computed
-from the columns present:\tabular{ll}{
+and date, containing the station identifiers, \code{date}, \code{time_zone},
+\code{n_hours} (number of hourly records for that day) and the daily variables
+that can be computed from the columns present:\tabular{ll}{
    Column \tab Definition \cr
    \code{temp_max_c} \tab Maximum of \code{temp_max_prev_c} (or of \code{temp_dry_c} if absent) \cr
    \code{temp_min_c} \tab Minimum of \code{temp_min_prev_c} (or of \code{temp_dry_c} if absent) \cr
@@ -56,10 +58,14 @@ Radiation is usually missing at night, so \code{radiation_mj_m2} does not use
 \code{min_hours} hourly records, and \code{NA} otherwise; daytime gaps make it an
 underestimate.
 
-The function does not perform quality control. Automatic-station data are
-raw measurements; check for implausible values before aggregating.
+The function does not itself check data quality, but values flagged by
+\code{\link[=inmet_qc]{inmet_qc()}} (non-missing \verb{<variable>_flag} columns) are left out of the
+daily statistics.
 }
 \examples{
 daily <- inmet_daily(rmet_example)
 head(daily[, c("date", "n_hours", "temp_max_c", "temp_min_c", "precip_mm")])
+
+# after quality control, flagged hourly values are ignored
+daily_qc <- inmet_daily(inmet_qc(rmet_example))
 }

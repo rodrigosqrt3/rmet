@@ -73,9 +73,17 @@ common <- intersect(names(wrong), names(right))
 summary(abs(wrong[common] - right[common]))
 ```
 
-For stations in other time zones (for example Amazonas, Acre, or Mato Grosso)
-pass the local zone explicitly, such as `tz = "America/Manaus"`. Use
-`tz = "UTC"` when you want UTC days on purpose.
+Brazil spans four time zones, and some states observed daylight saving time
+in some years and others not. By default (`tz = "auto"`), `inmet_daily()`
+uses each station's own zone, derived from its state and longitude by
+`inmet_timezone()`, and reports it in the `time_zone` column:
+
+```{r zones}
+inmet_timezone(c("RS", "MT", "AC", "AM"), c(-51.2, -56.1, -67.8, -69.9))
+```
+
+Pass a fixed zone, such as `tz = "America/Sao_Paulo"`, to put all stations
+on the same clock, or `tz = "UTC"` for UTC days.
 
 ## 3. Missing hours
 
@@ -93,6 +101,13 @@ number of hourly records in `n_hours`:
 daily <- inmet_daily(x)
 table(cut(daily$n_hours, c(0, 12, 19, 23, 25), right = TRUE))
 daily[daily$n_hours < 20, c("date", "n_hours", "temp_max_c", "precip_mm")]
+```
+
+To see completeness before computing anything, `inmet_completeness()` gives
+the percentage of valid hours per station and month (or year):
+
+```{r completeness-table}
+head(inmet_completeness(x, variables = c("temp_dry_c", "precip_mm", "wind_speed_ms")))
 ```
 
 Choose `min_hours` to suit the variable and the analysis: precipitation totals
@@ -121,16 +136,36 @@ about half a degree on average, and by more than two degrees on some days.
 `inmet_daily()` uses the extremes when they are present and falls back to
 `temp_dry_c` otherwise.
 
-## 5. Quality control is up to you
+## 5. Quality control
 
-INMET labels automatic-station observations as raw data. Before relying on
-daily values, check for impossible values, flat-lining sensors, and sudden
-jumps, for example:
+INMET labels automatic-station observations as raw data. `inmet_qc()` flags
+the most common problems: values outside physical limits, internally
+inconsistent records (such as an hourly maximum below the minimum), isolated
+spikes, and sensors stuck on the same value. It adds a `<variable>_flag`
+column naming the failed checks, and `inmet_daily()` and
+`inmet_completeness()` then ignore the flagged values:
 
 ```{r qc}
-summary(x$temp_dry_c)
-sum(x$temp_max_prev_c < x$temp_min_prev_c, na.rm = TRUE)
+checked <- inmet_qc(x)
 ```
 
-Comparing with nearby stations (`inmet_nearest()`) is often the most effective
-check for isolated errors.
+Station A801 passed every check in 2023. To see what a flag looks like, plant
+a sensor spike of 15 degC in one hour:
+
+```{r qc-spike}
+y <- x
+y$temp_dry_c[1000] <- y$temp_dry_c[1000] + 15
+flagged <- inmet_qc(y, quiet = TRUE)
+flagged[998:1002, c("datetime", "temp_dry_c", "temp_max_prev_c", "temp_dry_c_flag")]
+```
+
+The reading is both a spike and inconsistent with the hour's maximum.
+`inmet_daily(flagged)` leaves it out of the daily statistics, and
+`attr(flagged, "qc_summary")` counts the flags per variable and check. Across all 545 stations
+in the 2024 archive the same checks flag, for example, a stuck wind vane that
+reported 236 degrees for months and temperature readings that drop by 9 degC
+for one hour and return. Use `action = "remove"` to set flagged values to `NA`
+directly.
+
+These checks catch gross errors only. Comparing with neighbouring stations
+(`inmet_nearest()`) remains the most effective way to find subtler problems.

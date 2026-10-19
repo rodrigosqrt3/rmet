@@ -5,6 +5,8 @@ hourly_fixture <- function() {
   data.frame(
     station_code = "A801",
     station_name = "PORTO ALEGRE",
+    state = "RS",
+    longitude = -51.17,
     datetime = stamps,
     temp_dry_c = seq_along(stamps) / 2,
     temp_max_prev_c = seq_along(stamps) / 2 + 0.5,
@@ -44,7 +46,7 @@ test_that("UTC days can be requested explicitly", {
 
 test_that("air temperature is used when previous-hour extremes are absent", {
   x <- hourly_fixture()[, c("station_code", "datetime", "temp_dry_c")]
-  daily <- inmet_daily(x, min_hours = 1)
+  daily <- inmet_daily(x, tz = "America/Sao_Paulo", min_hours = 1)
   expect_equal(daily$temp_max_c[2], 25 / 2)
   expect_equal(daily$temp_min_c[2], 2 / 2)
   expect_false("precip_mm" %in% names(daily))

@@ -18,8 +18,9 @@
 #' @param quiet Suppress informational messages.
 #'
 #' @return A data frame with station code, name, region, state, coordinates,
-#' altitude, operational dates (UTC calendar dates) and status, and provider
-#' metadata. The legacy `start_year` column is retained for compatibility. The
+#' altitude, operational dates (UTC calendar dates) and status, provider
+#' metadata, and the local `time_zone` (see [inmet_timezone()]). The legacy
+#' `start_year` column is retained for compatibility. The
 #' attribute `catalog_source` records where the data came from (`"cache"`,
 #' `"INMET API"`, `"stale cache"`, or `"bundled fallback"`).
 #'
@@ -90,6 +91,7 @@ inmet_stations <- function(
       grepl(needle, .normalize_text(stations$station_code), fixed = TRUE)
     stations <- stations[matched, , drop = FALSE]
   }
+  stations$time_zone <- inmet_timezone(stations$state, stations$longitude)
   rownames(stations) <- NULL
   stations
 }

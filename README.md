@@ -35,14 +35,16 @@ inmet_nearest(latitude = -30.03, longitude = -51.23, n = 3)
 # hourly data (archives are downloaded once and cached)
 weather <- inmet_get(years = 2022:2024, stations = "A801")
 
-# daily summaries per local day
+# flag implausible values, check completeness, summarise per local day
+weather <- inmet_qc(weather)
+inmet_completeness(weather)
 daily <- inmet_daily(weather)
 ```
 
 Timestamps are returned in UTC, as in the source files, and mark the end of
-the hour each row describes. `inmet_daily()` assigns hours to local days
-(Brasilia time by default) and only reports a daily value when enough hours are
-available.
+the hour each row describes. `inmet_daily()` assigns hours to each station's
+local day, skips values flagged by `inmet_qc()`, and only reports a daily value
+when enough hours are available.
 
 ## Main functions
 
@@ -50,8 +52,12 @@ available.
 |---|---|
 | `inmet_get()` | Download (if needed) and read hourly data in one call. |
 | `inmet_daily()` | Daily summaries per station and local day. |
+| `inmet_qc()` | Flag implausible hourly values. |
+| `inmet_completeness()` | Percentage of valid hours per station and month or year. |
 | `inmet_stations()` | Search the official station catalogue. |
 | `inmet_nearest()` | Find the stations closest to a location. |
+| `inmet_timezone()` | Local time zone of Brazilian stations. |
+| `inmet_as_sf()` | Convert stations or data to `sf` points for maps. |
 | `inmet_download()` | Download, validate and update annual ZIP archives. |
 | `inmet_read()` | Read cached archives into a data frame. |
 | `inmet_extract()` | Extract the original CSV files. |
@@ -75,9 +81,10 @@ available.
 ## Data quality
 
 INMET describes automatic-station observations as raw data that have not
-undergone consistency validation. `rmet` standardises structure and missing
-values but does not certify that measurements are meteorologically plausible.
-See `vignette("daily-data", package = "rmet")` for time-zone, missing-data and
+undergone consistency validation. `inmet_qc()` flags gross errors (impossible
+values, inconsistencies, spikes, stuck sensors), but it cannot certify that
+every measurement is meteorologically plausible. See
+`vignette("daily-data", package = "rmet")` for time-zone, missing-data and
 quality-control advice.
 
 ## Data source and license

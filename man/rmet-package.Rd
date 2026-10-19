@@ -16,7 +16,11 @@ Meteorology (INMET).
 \item \code{\link[=inmet_get]{inmet_get()}} downloads and reads data in one call.
 \item \code{\link[=inmet_stations]{inmet_stations()}} and \code{\link[=inmet_nearest]{inmet_nearest()}} search the official station
 catalogue.
-\item \code{\link[=inmet_daily]{inmet_daily()}} builds daily summaries in local time.
+\item \code{\link[=inmet_qc]{inmet_qc()}} flags implausible values and \code{\link[=inmet_completeness]{inmet_completeness()}}
+reports missing data.
+\item \code{\link[=inmet_daily]{inmet_daily()}} builds daily summaries in local time
+(\code{\link[=inmet_timezone]{inmet_timezone()}}).
+\item \code{\link[=inmet_as_sf]{inmet_as_sf()}} converts stations or data to spatial points.
 \item \code{\link[=inmet_download]{inmet_download()}}, \code{\link[=inmet_read]{inmet_read()}}, and \code{\link[=inmet_extract]{inmet_extract()}} give
 step-by-step control.
 \item \code{\link[=inmet_cache_status]{inmet_cache_status()}} and \code{\link[=inmet_cache_clear]{inmet_cache_clear()}} manage the local cache.

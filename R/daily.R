@@ -6,18 +6,20 @@
 #'
 #' @param x A data frame as returned by [inmet_read()], with at least a
 #'   `datetime` column.
-#' @param tz Time zone defining the calendar day. Defaults to Brasilia time.
-#'   Use, for example, `"America/Manaus"` for stations in Amazonas, or
-#'   `"UTC"` for UTC days.
+#' @param tz Time zone defining the calendar day. `"auto"` (default) uses each
+#'   station's own local time, from its state and longitude (see
+#'   [inmet_timezone()]); this needs the `state` column. Otherwise, any name in
+#'   [OlsonNames()], for example `"America/Sao_Paulo"`, or `"UTC"` for UTC
+#'   days.
 #' @param min_hours Minimum number of non-missing hourly values a variable
 #'   needs on a given day; otherwise its daily value is `NA`. Local days have
 #'   24 hours (23 or 25 on daylight-saving transitions, which Brazil observed
 #'   until 2019).
 #'
 #' @return A data frame with one row per station and day, sorted by station
-#'   and date, containing the station identifiers, `date`, `n_hours` (number of
-#'   hourly records for that day) and the daily variables that can be computed
-#'   from the columns present:
+#'   and date, containing the station identifiers, `date`, `time_zone`,
+#'   `n_hours` (number of hourly records for that day) and the daily variables
+#'   that can be computed from the columns present:
 #'
 #' | Column | Definition |
 #' |---|---|
@@ -46,24 +48,33 @@
 #' `min_hours` hourly records, and `NA` otherwise; daytime gaps make it an
 #' underestimate.
 #'
-#' The function does not perform quality control. Automatic-station data are
-#' raw measurements; check for implausible values before aggregating.
+#' The function does not itself check data quality, but values flagged by
+#' [inmet_qc()] (non-missing `<variable>_flag` columns) are left out of the
+#' daily statistics.
 #'
 #' @examples
 #' daily <- inmet_daily(rmet_example)
 #' head(daily[, c("date", "n_hours", "temp_max_c", "temp_min_c", "precip_mm")])
+#'
+#' # after quality control, flagged hourly values are ignored
+#' daily_qc <- inmet_daily(inmet_qc(rmet_example))
 #' @export
-inmet_daily <- function(x, tz = "America/Sao_Paulo", min_hours = 20L) {
+inmet_daily <- function(x, tz = "auto", min_hours = 20L) {
   if (!is.data.frame(x) || !"datetime" %in% names(x) || !inherits(x$datetime, "POSIXct")) {
     stop("`x` must be a data frame with a POSIXct `datetime` column, as returned by ",
          "inmet_read().", call. = FALSE)
   }
-  tz <- .validate_timezone(tz)
   min_hours <- .validate_positive_integer(min_hours, "min_hours")
+  zone <- .row_time_zones(x, tz)
   if (!nrow(x)) return(data.frame())
 
   station <- if ("station_code" %in% names(x)) x$station_code else rep(NA_character_, nrow(x))
-  day <- as.Date(x$datetime - 1800, tz = tz)
+  shifted <- x$datetime - 1800
+  day <- structure(rep(NA_real_, nrow(x)), class = "Date")
+  for (z in unique(zone)) {
+    rows <- zone == z
+    day[rows] <- as.Date(shifted[rows], tz = z)
+  }
   key <- paste(station, unclass(day))
   group <- match(key, unique(key))
   n_groups <- max(group)
@@ -74,12 +85,18 @@ inmet_daily <- function(x, tz = "America/Sao_Paulo", min_hours = 20L) {
   out <- lapply(id_cols, function(col) x[[col]][first_row])
   names(out) <- id_cols
   out$date <- day[first_row]
+  out$time_zone <- zone[first_row]
   n_hours <- tabulate(group, nbins = n_groups)
   out$n_hours <- n_hours
 
+  # first available column, with values flagged by inmet_qc() set to NA
   pick <- function(...) {
     found <- intersect(c(...), names(x))
-    if (length(found)) x[[found[[1]]]] else NULL
+    if (!length(found)) return(NULL)
+    values <- as.numeric(x[[found[[1]]]])
+    flag <- x[[paste0(found[[1]], "_flag")]]
+    if (!is.null(flag)) values[!is.na(flag)] <- NA_real_
+    values
   }
   rules <- list(
     temp_max_c = list(pick("temp_max_prev_c", "temp_dry_c"), "max"),
@@ -96,12 +113,12 @@ inmet_daily <- function(x, tz = "America/Sao_Paulo", min_hours = 20L) {
   for (name in names(rules)) {
     values <- rules[[name]][[1]]
     if (is.null(values)) next
-    stat <- .group_stat(as.numeric(values), group, n_groups, rules[[name]][[2]])
+    stat <- .group_stat(values, group, n_groups, rules[[name]][[2]])
     stat$value[stat$count < min_hours] <- NA_real_
     out[[name]] <- stat$value
   }
   if ("radiation_kjm2" %in% names(x)) {
-    radiation <- pmax(as.numeric(x$radiation_kjm2), 0)
+    radiation <- pmax(pick("radiation_kjm2"), 0)
     stat <- .group_stat(radiation, group, n_groups, "sum")
     value <- stat$value / 1000
     value[stat$count == 0L | n_hours < min_hours] <- NA_real_
@@ -113,6 +130,22 @@ inmet_daily <- function(x, tz = "America/Sao_Paulo", min_hours = 20L) {
   out <- out[ord, , drop = FALSE]
   rownames(out) <- NULL
   out
+}
+
+# Time zone of every row: one fixed zone, or each station's own zone when
+# tz = "auto".
+.row_time_zones <- function(x, tz) {
+  if (!identical(tz, "auto")) return(rep(.validate_timezone(tz), nrow(x)))
+  if (!"state" %in% names(x)) {
+    stop("`tz = \"auto\"` needs a `state` column; set `tz` explicitly.", call. = FALSE)
+  }
+  longitude <- if ("longitude" %in% names(x)) x$longitude else NA_real_
+  zone <- inmet_timezone(x$state, longitude)
+  if (anyNA(zone)) {
+    stop("Unknown state(s): ", paste(unique(x$state[is.na(zone)]), collapse = ", "),
+         ". Set `tz` explicitly.", call. = FALSE)
+  }
+  zone
 }
 
 # Grouped statistic over non-missing values. Returns the statistic (NA for

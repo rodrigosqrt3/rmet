@@ -39,8 +39,9 @@ the cache, then the official API, then the bundled fallback.}
 }
 \value{
 A data frame with station code, name, region, state, coordinates,
-altitude, operational dates (UTC calendar dates) and status, and provider
-metadata. The legacy \code{start_year} column is retained for compatibility. The
+altitude, operational dates (UTC calendar dates) and status, provider
+metadata, and the local \code{time_zone} (see \code{\link[=inmet_timezone]{inmet_timezone()}}). The legacy
+\code{start_year} column is retained for compatibility. The
 attribute \code{catalog_source} records where the data came from (\code{"cache"},
 \code{"INMET API"}, \code{"stale cache"}, or \code{"bundled fallback"}).
 }
