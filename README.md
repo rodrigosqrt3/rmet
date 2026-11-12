@@ -86,9 +86,8 @@ when enough hours are available.
   against the size reported by the server and resumed after interruptions.
   Archives of the current and previous year are re-downloaded when INMET
   publishes a newer version.
-* **Speed.** The data rows are parsed by compiled code (a full year in about
-  20 s), and `cache = TRUE` keeps the parsed stations for near-instant
-  re-reads.
+* **Speed.** The data rows are parsed by compiled code: a full year of
+  4 million rows is read in about 20 s.
 * **Parsing.** Files are read directly from the archives. Date and hour
   formats, Latin-1 and UTF-8 encodings, decimal commas, `-9999` sentinels and
   damaged header text from different years are handled; columns get stable

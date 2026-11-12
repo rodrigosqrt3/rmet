@@ -46,13 +46,6 @@
   ordinary data frames, and the example dataset has the new class.
 * New vignette: "Monthly Values, Evapotranspiration and Derived Variables".
 
-* `inmet_read(cache = TRUE)` and `inmet_get(cache = TRUE)` keep the parsed
-  station files (compressed, in a `parsed` folder of the cache directory), so
-  that reading them again takes a fraction of the time (about 0.5 s for 40
-  stations of a year, instead of 5 s). The files are renewed automatically
-  when the archive changes. `inmet_cache_status()` reports their size
-  (`parsed_mb`) and `inmet_cache_clear(parsed = TRUE)` removes them.
-
 ## Improvements
 
 * `inmet_daily()`, `inmet_qc()` and `inmet_completeness()` return an empty

@@ -30,7 +30,6 @@ inmet_get <- function(
     start_date = NULL,
     end_date = NULL,
     drop_empty = TRUE,
-    cache = FALSE,
     max_tries = 15L,
     force = FALSE,
     check_updates = TRUE,
@@ -51,6 +50,6 @@ inmet_get <- function(
   inmet_read(
     years = years, stations = stations, dest_dir = dest_dir, tz = tz,
     variables = variables, start_date = start_date, end_date = end_date,
-    drop_empty = drop_empty, cache = cache, quiet = quiet
+    drop_empty = drop_empty, quiet = quiet
   )
 }

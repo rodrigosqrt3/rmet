@@ -20,11 +20,6 @@
 #'   (default). INMET files contain such rows for periods when a station was
 #'   not reporting. Use `FALSE` to keep them, for example to obtain a regular
 #'   hourly grid.
-#' @param cache Keep the parsed station files in the cache directory (a `parsed`
-#'   folder next to the archives), so that reading them again takes a fraction
-#'   of the time. Files are stored compressed, in about the size of the
-#'   archives for the stations read, and are renewed automatically when the
-#'   archive changes. Remove them with [inmet_cache_clear()] (`parsed = TRUE`).
 #' @param quiet Suppress progress messages.
 #'
 #' @return A data frame with one row per station and hour, sorted by station
@@ -83,14 +78,12 @@ inmet_read <- function(
     start_date = NULL,
     end_date = NULL,
     drop_empty = TRUE,
-    cache = FALSE,
     quiet = FALSE
 ) {
   years <- .validate_years(years)
   dest_dir <- .validate_directory(dest_dir, "dest_dir")
   quiet <- .validate_flag(quiet, "quiet")
   drop_empty <- .validate_flag(drop_empty, "drop_empty")
-  cache <- .validate_flag(cache, "cache")
   tz <- .validate_timezone(tz)
   stations <- .validate_character_filter(stations, "stations", uppercase = TRUE)
   variables <- .validate_character_filter(variables, "variables")
@@ -124,20 +117,13 @@ inmet_read <- function(
         next
       }
     }
-    if (!quiet) {
-      message("Reading year ", year, " (", length(entries), " file(s)",
-              if (cache) ", with the parsed cache", ") ...")
-    }
-    stamp <- if (cache) {
-      list(archive_size = file.size(archive), archive_mtime = as.numeric(file.mtime(archive)))
-    }
+    if (!quiet) message("Reading year ", year, " (", length(entries), " file(s)) ...")
 
     # Newest file versions first, so that their rows win in .drop_superseded()
     entries <- entries[order(-as.numeric(.entry_end_date(entries)), na.last = TRUE)]
     by_year[[k]] <- .safe_rbind(lapply(entries, function(entry) {
       .read_archive_entry(archive, entry, sizes[[entry]], work_dir, tz, variables,
-                          bounds, drop_empty,
-                          cache = if (cache) list(dir = dest_dir, year = year, stamp = stamp))
+                          bounds, drop_empty)
     }))
   }
 
@@ -220,15 +206,7 @@ inmet_read <- function(
 # Parses one station file; problems become warnings so that a single damaged
 # file does not abort reading a whole year.
 .read_archive_entry <- function(archive, entry, size, work_dir, tz, variables,
-                                bounds, drop_empty, cache = NULL) {
-  if (!is.null(cache)) {
-    cache$entry <- entry
-    cache$stamp$entry_size <- size
-    cached <- .read_parsed_cache(cache)
-    if (!is.null(cached)) {
-      return(.filter_entry(cached$data, tz, variables, bounds, drop_empty))
-    }
-  }
+                                bounds, drop_empty) {
   bytes <- tryCatch(
     .read_entry_bytes(archive, entry, size, work_dir),
     error = function(e) {
@@ -245,7 +223,6 @@ inmet_read <- function(
     }
   )
   if (is.null(parsed)) return(NULL)
-  if (!is.null(cache)) .write_parsed_cache(cache, parsed$data)
   .filter_entry(parsed$data, tz, variables, bounds, drop_empty)
 }
 

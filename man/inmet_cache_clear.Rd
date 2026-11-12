@@ -8,8 +8,7 @@ inmet_cache_clear(
   years = NULL,
   dest_dir = inmet_cache_dir(),
   ask = interactive(),
-  catalog = FALSE,
-  parsed = FALSE
+  catalog = FALSE
 )
 }
 \arguments{
@@ -20,9 +19,6 @@ inmet_cache_clear(
 \item{ask}{Ask for confirmation before deleting.}
 
 \item{catalog}{Also remove the cached official station catalogue.}
-
-\item{parsed}{Also remove the parsed station files kept by
-\code{inmet_read(cache = TRUE)} for these years.}
 }
 \value{
 Invisible \code{NULL}.

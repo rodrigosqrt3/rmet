@@ -13,7 +13,6 @@ inmet_get(
   start_date = NULL,
   end_date = NULL,
   drop_empty = TRUE,
-  cache = FALSE,
   max_tries = 15L,
   force = FALSE,
   check_updates = TRUE,
@@ -43,12 +42,6 @@ format, interpreted in \code{tz}.}
 (default). INMET files contain such rows for periods when a station was
 not reporting. Use \code{FALSE} to keep them, for example to obtain a regular
 hourly grid.}
-
-\item{cache}{Keep the parsed station files in the cache directory (a \code{parsed}
-folder next to the archives), so that reading them again takes a fraction
-of the time. Files are stored compressed, in about the size of the
-archives for the stations read, and are renewed automatically when the
-archive changes. Remove them with \code{\link[=inmet_cache_clear]{inmet_cache_clear()}} (\code{parsed = TRUE}).}
 
 \item{max_tries}{Maximum attempts per year.}
 
