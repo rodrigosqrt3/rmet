@@ -5,7 +5,7 @@
 \alias{rmet_example}
 \title{Hourly weather data from INMET station A801 (Porto Alegre), 2023}
 \format{
-A data frame with 8,663 rows and 25 columns. See \code{\link[=inmet_read]{inmet_read()}} for
+An \code{rmet_hourly} data frame (see \link{rmet-classes}) with 8,663 rows and 25 columns. See \code{\link[=inmet_read]{inmet_read()}} for
 the description of each column.
 }
 \source{

@@ -27,6 +27,7 @@
 #' @seealso [inmet_qc()], [inmet_daily()]
 #' @export
 inmet_completeness <- function(x, by = c("month", "year"), variables = NULL) {
+  if (.is_no_data(x)) return(data.frame())
   if (!is.data.frame(x) || !"datetime" %in% names(x) || !inherits(x$datetime, "POSIXct")) {
     stop("`x` must be a data frame with a POSIXct `datetime` column, as returned by ",
          "inmet_read().", call. = FALSE)

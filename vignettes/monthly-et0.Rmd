@@ -1,0 +1,173 @@
+---
+title: "Monthly Values, Evapotranspiration and Derived Variables"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Monthly Values, Evapotranspiration and Derived Variables}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This vignette goes from hourly data to quantities used in agriculture,
+hydrology and climatology: derived hourly variables, reference
+evapotranspiration and monthly summaries. It uses the one-station example
+dataset shipped with the package, so every chunk runs offline. With your own
+data, replace `rmet_example` by the result of `inmet_get()`.
+
+```{r library}
+library(rmet)
+hourly <- rmet_example
+hourly[, c("station_code", "datetime", "temp_dry_c", "humid_rel_pct", "precip_mm")]
+```
+
+## Hourly data: class and summary
+
+Results of `inmet_read()` and `inmet_get()` are `rmet_hourly` data frames. They
+are ordinary data frames, with a compact `print()` and a `summary()` that
+shows, per station, the period and how complete the measurements are:
+
+```{r summary}
+summary(hourly)
+```
+
+## 1. Derived variables
+
+`inmet_derive()` adds vapour pressure, vapour pressure deficit (VPD), wind
+components and the heat index. VPD, in kPa, is the usual measure of the
+drying power of the air:
+
+```{r derive}
+hourly <- inmet_derive(hourly)
+summary(as.data.frame(hourly[, c("vapor_pressure_kpa", "vpd_kpa", "heat_index_c")]))
+```
+
+The wind components follow the meteorological convention: the direction is
+where the wind comes *from*, so a wind from the west (270 degrees) has a
+positive `wind_u_ms` (it blows towards the east).
+
+Values flagged by `inmet_qc()` are ignored, so run the quality control first:
+
+```{r qc}
+hourly <- inmet_qc(hourly, quiet = TRUE)
+hourly <- inmet_derive(hourly)
+```
+
+## 2. Daily values and reference evapotranspiration
+
+`inmet_daily()` builds daily summaries in each station's local time.
+`inmet_et0()` adds the FAO-56 Penman-Monteith grass reference
+evapotranspiration, `et0_mm`, in mm per day:
+
+```{r et0}
+daily <- inmet_daily(hourly)
+daily <- inmet_et0(daily)
+head(daily[, c("date", "temp_max_c", "temp_min_c", "radiation_mj_m2", "et0_mm")])
+```
+
+Two points deserve care. First, `et0_mm` is `NA` on days when any input is
+missing, so the `min_hours` rule of `inmet_daily()` also applies to it.
+Second, daily radiation is the sum of the hourly values, so it underestimates
+the true value on days with missing daytime hours. Compare `n_hours` and the
+inputs before using ET0 for decisions such as irrigation scheduling.
+
+## 3. Monthly values
+
+`inmet_monthly()` aggregates the daily values by calendar month. A monthly
+value is `NA` unless at least `min_days` days (20 by default) have a valid
+value:
+
+```{r monthly}
+monthly <- inmet_monthly(daily)
+monthly[, c("month", "n_days", "temp_mean_c", "precip_mm", "rain_days", "et0_mm")]
+```
+
+Months are local calendar months, so the first month of a year of UTC data can
+contain a single day (here, the evening of 31 December). Such partial months
+are `NA` because of `min_days`.
+
+A simple water balance indicator, rainfall minus reference evapotranspiration,
+follows directly:
+
+```{r balance}
+monthly$balance_mm <- monthly$precip_mm - monthly$et0_mm
+round(monthly$balance_mm, 1)
+```
+
+## 4. Potential evapotranspiration and water balance
+
+When only temperature is reliable, `inmet_et0(method = "hargreaves")` needs
+no radiation, wind or humidity. For monthly data, `inmet_pet_thornthwaite()`
+gives the potential evapotranspiration, and `inmet_water_balance()` follows the
+soil water month after month (Thornthwaite and Mather):
+
+```{r balance2}
+monthly <- inmet_pet_thornthwaite(monthly)
+balance <- inmet_water_balance(monthly, awc = 100)
+round(balance[, c("precip_mm", "pet_mm", "storage_mm", "deficit_mm", "excess_mm")][2:13, ], 1)
+```
+
+`awc` is the available water capacity of the soil, in mm. The first months
+depend on the initial storage (`initial`), so use a series that starts before the
+period of interest; a single year, as here, only illustrates the output.
+
+## 5. Climate indices
+
+`inmet_indices()` computes ETCCDI-style indices per station and year (or
+month) from the daily values: extremes, counts of hot days and frost days,
+growing degree days, total rainfall on wet days and the longest dry and wet
+spells. An index is `NA` when too many days are missing (`min_valid`):
+
+```{r indices}
+indices <- inmet_indices(daily)
+t(indices[, c("txx", "tnn", "summer_days", "gdd", "prcptot", "rx1day", "cdd", "cwd")])
+```
+
+The first column is the evening of 31 December 2022 in local time, the start
+of the UTC year of the example data, which is too short to give any index.
+
+With 20 or more years of monthly data, `inmet_spi()` gives the Standardized
+Precipitation Index, and `inmet_normals()` and `inmet_anomaly()` the
+climatological normals and the anomalies relative to them.
+
+## 6. Short gaps
+
+`inmet_fill()` fills short gaps by linear interpolation and, if there are
+several years, with the typical value of the day of the year. Every filled
+value is marked, so the result can be traced back to measurements. Rainfall is
+never filled:
+
+```{r fill}
+holes <- hourly
+holes$temp_dry_c[100:102] <- NA
+filled <- inmet_fill(holes, "temp_dry_c", method = "linear")
+table(filled$temp_dry_c_filled, useNA = "ifany")
+```
+
+## 7. Stations and locations
+
+`inmet_nearest()` accepts many locations at once, `inmet_stations_within()`
+selects the stations inside a box or polygon, and `inmet_interpolate()`
+estimates a variable at other places from the stations by inverse-distance
+weighting:
+
+```{r locations}
+inmet_nearest(c(-30.03, -23.55), c(-51.23, -46.63), n = 2, source = "bundled")[
+  , c("location", "rank", "station_code", "station_name", "distance_km")]
+```
+
+## 8. Finding stations with data
+
+Before downloading and reading, `inmet_availability()` lists the stations and
+periods in archives that are already in the cache, using only the file names:
+
+```{r availability}
+inmet_availability(dest_dir = file.path(tempdir(), "rmet-vignette-cache"))
+```
+
+With a populated cache it has one row per station and year. To keep the cache
+somewhere else for a whole session, set `options(rmet.cache_dir = "path")` or
+the environment variable `RMET_CACHE_DIR`; `inmet_cache_dir()` shows the
+directory in use.

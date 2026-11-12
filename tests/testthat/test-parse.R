@@ -54,11 +54,10 @@ test_that("variables keep only the requested measurements", {
 })
 
 test_that("ambiguous day-first dates are never read as year-first", {
-  values <- rmet:::.parse_inmet_datetime(
+  values <- parse_fixture(
     c("04-01-2020", "2020-01-04", "31/12/2019", "2019/12/31", "2020-13-01", "garbage"),
-    c("0000", "0000", "2300", "2300", "0000", "0000"),
-    "UTC"
-  )
+    c("0000", "0000", "2300", "2300", "0000", "0000")
+  )$datetime
   expect_equal(
     format(values, "%Y-%m-%d %H:%M"),
     c("2020-01-04 00:00", "2020-01-04 00:00", "2019-12-31 23:00",
@@ -66,11 +65,23 @@ test_that("ambiguous day-first dates are never read as year-first", {
   )
 })
 
-test_that("invalid hours give NA timestamps", {
-  values <- rmet:::.parse_inmet_datetime(
-    rep("2020-01-01", 5), c("2500", "1260", "2401", "", "12:30"), "UTC"
+test_that("only real calendar dates with consistent separators are accepted", {
+  values <- parse_fixture(
+    c("2020-02-30", "29/02/2020", "29/02/2019", "2020-01/04", "2020/01-04",
+      " 2020-01-04 ", "2020-1-4", "20-01-2020x", "0/01/2020", "2020-00-10", "2020-01-00"),
+    "0000"
+  )$datetime
+  expect_equal(
+    format(values, "%Y-%m-%d"),
+    c(NA, "2020-02-29", NA, NA, NA, "2020-01-04", NA, NA, NA, NA, NA)
   )
-  expect_equal(format(values, "%H:%M"), c(NA, NA, NA, NA, "12:30"))
+})
+
+test_that("invalid hours give NA timestamps", {
+  values <- parse_fixture(
+    rep("2020-01-01", 8), c("2500", "1260", "2401", "", "12:30", "12345", "UTC", "5")
+  )$datetime
+  expect_equal(format(values, "%H:%M"), c(NA, NA, NA, NA, "12:30", NA, NA, "00:05"))
 })
 
 test_that("timestamps are UTC instants displayed in the requested zone", {
@@ -83,11 +94,77 @@ test_that("timestamps are UTC instants displayed in the requested zone", {
 })
 
 test_that("ragged rows are padded or truncated", {
-  cells <- rmet:::.split_fields(c("a;b;c", "d;e", "f;g;h;i"), 3L)
-  expect_equal(dim(cells), c(3L, 3L))
-  expect_equal(cells[, 2], c("d", "e", NA))
-  expect_equal(cells[, 3], c("f", "g", "h"))
-  expect_equal(rmet:::.split_fields(c("a;b", "c;d"), 2L), matrix(c("a", "b", "c", "d"), 2))
+  lines <- c(
+    "Data;Hora UTC;PRECIPITACAO TOTAL;PRESSAO ESTACAO;TEMP BULBO SECO;",
+    "2020/01/01;0000;1,5",                       # short row
+    "2020/01/01;0100;2;3;4;99;extra",            # long row
+    "2020/01/01;0200;;;;",                       # nothing measured
+    "a row without separators",
+    ""
+  )
+  kept <- rmet:::.parse_inmet_lines(lines, "UTC", fallback_code = "A001")
+  expect_equal(kept$precip_mm, c(1.5, 2))
+  expect_equal(kept$pressure_station_hpa, c(NA, 3))
+  expect_equal(kept$temp_dry_c, c(NA, 4))
+  all_rows <- rmet:::.parse_inmet_lines(lines, "UTC", drop_empty = FALSE, fallback_code = "A001")
+  expect_equal(nrow(all_rows), 3L)
+  expect_true(all(is.na(all_rows[3, c("precip_mm", "pressure_station_hpa", "temp_dry_c")])))
+})
+
+test_that("numbers are read like as.numeric() after decimal commas become points", {
+  text <- c("1,5", "-9999", " 7 ", "1e2", "abc", "NA", "1.2.3", "-", ".", "+3,25",
+            "123456789012345678", strrep("1", 70), "0,000", "-0,5", "Inf", "",
+            "-9999,0", "1,5,5", "12 3", "0.1", "007", "1E-3")
+  values <- parse_fixture(rep("2020-01-01", length(text)), "0000", measure = text)
+  expected <- suppressWarnings(as.numeric(chartr(",", ".", text)))
+  expected[!is.na(expected) & expected == -9999] <- NA
+  expected[nchar(text) >= 64] <- NA      # longer than the buffer of the fast reader
+  # rows where every measurement is missing are dropped
+  expect_equal(values$precip_mm, expected[!is.na(expected)])
+})
+
+test_that("files with CRLF line endings, no final newline and a BOM are read", {
+  rows <- c("﻿REGIAO:;S", "UF:;RS", "ESTACAO:;TESTE", "CODIGO (WMO):;A001",
+            "LATITUDE:;-30,0", "LONGITUDE:;-51,0", "ALTITUDE:;10",
+            "Data;Hora UTC;PRECIPITACAO TOTAL;", "2020-01-01;0100;1,5;", "2020-01-01;0200;2,5;")
+  crlf <- charToRaw(paste(rows, collapse = "\r\n"))          # no newline at the end
+  out <- rmet:::.parse_inmet_raw(crlf, "UTC")
+  expect_equal(out$precip_mm, c(1.5, 2.5))
+  expect_equal(unique(out$station_code), "A001")
+  expect_equal(format(out$datetime, "%H:%M"), c("01:00", "02:00"))
+  # a header on the very last line has no rows
+  expect_null(rmet:::.parse_inmet_raw(charToRaw("UF:;RS\nData;Hora UTC;PRECIPITACAO"), "UTC"))
+  expect_error(rmet:::.parse_inmet_raw(raw(0), "UTC"), "locate")
+  expect_error(rmet:::.parse_inmet_raw(charToRaw("UF:;RS\nData;Valor\n1;2\n"), "UTC"),
+               "locate")
+})
+
+test_that("files larger than the header window are read completely", {
+  body <- sprintf("2020-01-%02d;%04d;%d;", rep(1:28, each = 24), rep(0:23 * 100, 28), seq_len(672))
+  lines <- c("REGIAO:;S", "UF:;RS", "ESTACAO:;TESTE", "CODIGO (WMO):;A001",
+             "LATITUDE:;-30,0", "LONGITUDE:;-51,0", "ALTITUDE:;10",
+             "Data;Hora UTC;PRECIPITACAO TOTAL;", rep(body, 30))
+  bytes <- charToRaw(paste0(paste(lines, collapse = "\n"), "\n"))
+  expect_gt(length(bytes), rmet:::.header_bytes)
+  out <- rmet:::.parse_inmet_raw(bytes, "UTC")
+  expect_equal(nrow(out), 672L * 30L)
+  expect_equal(out$precip_mm[c(1, 672 * 30)], c(1, 672))
+})
+
+test_that("the C parser checks its arguments", {
+  parse <- function(...) .Call(rmet:::C_parse_inmet_body, ...)
+  bytes <- charToRaw("a;b;1\n")
+  expect_error(parse("text", 0L, 3L, 1L, 2L, 3L), "raw vector")
+  expect_error(parse(bytes, -1L, 3L, 1L, 2L, 3L), "Invalid arguments")
+  expect_error(parse(bytes, 100L, 3L, 1L, 2L, 3L), "Invalid arguments")
+  expect_error(parse(bytes, 0L, 0L, 1L, 2L, 3L), "Invalid arguments")
+  expect_error(parse(bytes, NA_integer_, 3L, 1L, 2L, 3L), "Invalid arguments")
+  expect_error(parse(bytes, 0L, 3L, 1L, 2L, 3), "must be integer")
+  # fields outside the row layout are ignored
+  out <- parse(bytes, 0L, 3L, 0L, 9L, c(3L, 7L))
+  expect_equal(dim(out$values), c(2L, 1L))
+  expect_equal(out$values[, 1], c(1, NA))
+  expect_true(is.na(out$day) && is.na(out$seconds))
 })
 
 test_that("line decoding handles Latin-1, UTF-8 and byte-order marks", {

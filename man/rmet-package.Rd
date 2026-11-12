@@ -20,10 +20,18 @@ catalogue.
 reports missing data.
 \item \code{\link[=inmet_daily]{inmet_daily()}} builds daily summaries in local time
 (\code{\link[=inmet_timezone]{inmet_timezone()}}).
+\item \code{\link[=inmet_monthly]{inmet_monthly()}}, \code{\link[=inmet_et0]{inmet_et0()}} and \code{\link[=inmet_derive]{inmet_derive()}} add monthly values,
+evapotranspiration and derived variables; \code{\link[=inmet_pet_thornthwaite]{inmet_pet_thornthwaite()}} and
+\code{\link[=inmet_water_balance]{inmet_water_balance()}} give the water balance.
+\item \code{\link[=inmet_indices]{inmet_indices()}}, \code{\link[=inmet_spi]{inmet_spi()}}, \code{\link[=inmet_normals]{inmet_normals()}} and \code{\link[=inmet_anomaly]{inmet_anomaly()}}
+describe the climate; \code{\link[=inmet_fill]{inmet_fill()}} fills short gaps.
+\item \code{\link[=inmet_nearest]{inmet_nearest()}}, \code{\link[=inmet_stations_within]{inmet_stations_within()}} and \code{\link[=inmet_interpolate]{inmet_interpolate()}}
+relate stations to locations and areas.
+\item \code{\link[=inmet_availability]{inmet_availability()}} shows which stations are in the cached archives.
 \item \code{\link[=inmet_as_sf]{inmet_as_sf()}} converts stations or data to spatial points.
 \item \code{\link[=inmet_download]{inmet_download()}}, \code{\link[=inmet_read]{inmet_read()}}, and \code{\link[=inmet_extract]{inmet_extract()}} give
 step-by-step control.
-\item \code{\link[=inmet_cache_status]{inmet_cache_status()}} and \code{\link[=inmet_cache_clear]{inmet_cache_clear()}} manage the local cache.
+\item \code{\link[=inmet_cache_status]{inmet_cache_status()}}, \code{\link[=inmet_cache_clear]{inmet_cache_clear()}} and \code{\link[=inmet_cache_dir]{inmet_cache_dir()}} manage the local cache.
 }
 }
 

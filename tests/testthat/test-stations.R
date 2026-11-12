@@ -138,6 +138,16 @@ test_that("API timestamps are converted to UTC calendar dates", {
   )
 })
 
+test_that("inmet_nearest reports stations without coordinates", {
+  stations <- data.frame(
+    station_code = c("A001", "A002", "A003"),
+    latitude = c(-30, NA, -31), longitude = c(-51, -52, NA)
+  )
+  local_mocked_bindings(inmet_stations = function(...) stations)
+  expect_message(near <- inmet_nearest(-30, -51, n = 5), "2 station")
+  expect_equal(near$station_code, "A001")
+})
+
 test_that("inmet_nearest ranks stations by distance", {
   near <- inmet_nearest(-30.05, -51.17, n = 3, source = "bundled")
   expect_equal(nrow(near), 3L)

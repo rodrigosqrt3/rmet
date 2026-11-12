@@ -136,3 +136,14 @@ create_mock_inmet_allna <- function(cache_dir, year = 2020) {
   file.remove(csv_path)
   zip_path
 }
+
+# Parses data rows built from vectors, through the real parser. `...` are
+# further columns (character vectors). Returns the data frame (one row per
+# input, invalid timestamps give NA datetimes and a warning that is silenced).
+parse_fixture <- function(dates, hours, measure = "1", tz = "UTC") {
+  header <- c("REGIAO:;S", "UF:;RS", "ESTACAO:;TESTE", "CODIGO (WMO):;A001",
+              "LATITUDE:;-30,0", "LONGITUDE:;-51,0", "ALTITUDE:;10",
+              "Data;Hora UTC;PRECIPITACAO TOTAL (mm);")
+  rows <- paste0(dates, ";", hours, ";", measure, ";")
+  suppressWarnings(rmet:::.parse_inmet_lines(c(header, rows), tz))
+}

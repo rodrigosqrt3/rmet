@@ -101,7 +101,7 @@ test_that("a failed fallback extraction is reported", {
   local_mocked_bindings(unz = function(...) stop("cannot open"), .package = "base")
   local_mocked_bindings(unzip = function(...) character(), .package = "utils")
   expect_error(
-    rmet:::.read_entry_lines(zip_path, "missing.CSV", tempdir()),
+    rmet:::.read_entry_bytes(zip_path, "missing.CSV", 10, tempdir()),
     "could not be extracted"
   )
 })

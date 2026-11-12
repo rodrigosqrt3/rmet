@@ -13,7 +13,7 @@ inmet_stations(
   source = c("auto", "remote", "bundled"),
   refresh = FALSE,
   max_age = 30,
-  cache_dir = tools::R_user_dir("rmet", "cache"),
+  cache_dir = inmet_cache_dir(),
   quiet = FALSE
 )
 }

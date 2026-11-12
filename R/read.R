@@ -72,7 +72,7 @@
 inmet_read <- function(
     years,
     stations = NULL,
-    dest_dir = tools::R_user_dir("rmet", "cache"),
+    dest_dir = inmet_cache_dir(),
     tz = "UTC",
     variables = NULL,
     start_date = NULL,
@@ -103,8 +103,10 @@ inmet_read <- function(
       stop(sprintf("ZIP for year %d not found at '%s'. Run inmet_download(%d) first.",
                    year, archive, year), call. = FALSE)
     }
-    entries <- .archive_csv_entries(archive)
-    if (is.null(entries)) stop("Archive is invalid or incomplete: ", archive, call. = FALSE)
+    listing <- .archive_csv_listing(archive)
+    if (is.null(listing)) stop("Archive is invalid or incomplete: ", archive, call. = FALSE)
+    entries <- listing$Name
+    sizes <- stats::setNames(listing$Length, listing$Name)
 
     if (!is.null(stations)) {
       codes <- vapply(entries, .extract_station_code, character(1), USE.NAMES = FALSE)
@@ -120,7 +122,8 @@ inmet_read <- function(
     # Newest file versions first, so that their rows win in .drop_superseded()
     entries <- entries[order(-as.numeric(.entry_end_date(entries)), na.last = TRUE)]
     by_year[[k]] <- .safe_rbind(lapply(entries, function(entry) {
-      .read_archive_entry(archive, entry, work_dir, tz, variables, bounds, drop_empty)
+      .read_archive_entry(archive, entry, sizes[[entry]], work_dir, tz, variables,
+                          bounds, drop_empty)
     }))
   }
 
@@ -144,7 +147,7 @@ inmet_read <- function(
       warning("Unknown variables ignored: ", paste(unknown, collapse = ", "), call. = FALSE)
     }
   }
-  out
+  .as_rmet(out, "rmet_hourly")
 }
 
 # End of the period covered by a station file, from names such as
@@ -182,30 +185,39 @@ inmet_read <- function(
   df
 }
 
-# CSV entries of an archive (NULL if the archive cannot be listed).
-.archive_csv_entries <- function(archive) {
+# Names and uncompressed sizes of the CSV entries of an archive (NULL if the
+# archive cannot be listed).
+.archive_csv_listing <- function(archive) {
   listing <- tryCatch(utils::unzip(archive, list = TRUE), error = function(e) NULL)
   if (is.null(listing) || !nrow(listing)) return(NULL)
   names <- listing$Name
-  names[grepl("\\.CSV$", names, ignore.case = TRUE) &
-          !grepl("(^|/)__MACOSX(/|$)", names) &
-          !.unsafe_archive_path(names)]
+  keep <- grepl("\\.CSV$", names, ignore.case = TRUE) &
+    !grepl("(^|/)__MACOSX(/|$)", names) &
+    !.unsafe_archive_path(names)
+  listing[keep, c("Name", "Length"), drop = FALSE]
+}
+
+# CSV entries of an archive (NULL if the archive cannot be listed).
+.archive_csv_entries <- function(archive) {
+  listing <- .archive_csv_listing(archive)
+  if (is.null(listing)) NULL else listing$Name
 }
 
 # Parses one station file; problems become warnings so that a single damaged
 # file does not abort reading a whole year.
-.read_archive_entry <- function(archive, entry, work_dir, tz, variables, bounds, drop_empty) {
-  lines <- tryCatch(
-    .read_entry_lines(archive, entry, work_dir),
+.read_archive_entry <- function(archive, entry, size, work_dir, tz, variables,
+                                bounds, drop_empty) {
+  bytes <- tryCatch(
+    .read_entry_bytes(archive, entry, size, work_dir),
     error = function(e) {
       warning("Could not extract '", entry, "': ", conditionMessage(e), call. = FALSE)
       NULL
     }
   )
-  if (is.null(lines)) return(NULL)
+  if (is.null(bytes)) return(NULL)
   tryCatch(
-    .parse_inmet_lines(
-      lines, tz = tz, variables = variables, dt_start = bounds$start,
+    .parse_inmet_raw(
+      bytes, tz = tz, variables = variables, dt_start = bounds$start,
       dt_end = bounds$end, drop_empty = drop_empty,
       fallback_code = .extract_station_code(entry)
     ),
@@ -238,7 +250,7 @@ inmet_read <- function(
 #' @export
 inmet_extract <- function(
     years,
-    dest_dir = tools::R_user_dir("rmet", "cache"),
+    dest_dir = inmet_cache_dir(),
     out_dir = file.path(dest_dir, "csv"),
     stations = NULL,
     overwrite = FALSE,

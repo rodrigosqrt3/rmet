@@ -1,6 +1,36 @@
+#' Default cache directory of rmet
+#'
+#' Returns the directory where rmet stores downloaded archives and the station
+#' catalogue. It is the first one that is set among the option
+#' `rmet.cache_dir`, the environment variable `RMET_CACHE_DIR`, and the
+#' user-level cache directory of R (`tools::R_user_dir("rmet", "cache")`).
+#' Every function that takes a `dest_dir` or `cache_dir` argument uses it as
+#' the default.
+#'
+#' @return A single path.
+#' @examples
+#' inmet_cache_dir()
+#'
+#' # use a different directory for the whole session
+#' old <- options(rmet.cache_dir = file.path(tempdir(), "rmet"))
+#' inmet_cache_dir()
+#' options(old)
+#' @seealso [inmet_cache_status()], [inmet_cache_clear()]
+#' @export
+inmet_cache_dir <- function() {
+  option <- getOption("rmet.cache_dir")
+  if (is.character(option) && length(option) == 1L && !is.na(option) && nzchar(option)) {
+    return(path.expand(option))
+  }
+  environment <- Sys.getenv("RMET_CACHE_DIR", unset = "")
+  if (nzchar(environment)) return(path.expand(environment))
+  tools::R_user_dir("rmet", "cache")
+}
+
 #' Inspect downloaded INMET archives
 #'
-#' @param dest_dir Cache directory used by [inmet_download()].
+#' @param dest_dir Cache directory used by [inmet_download()]. Defaults to
+#'   [inmet_cache_dir()].
 #' @return A data frame with one row per cached year: archive path, size in
 #'   MB, whether the ZIP is valid, whether a partial download exists, and when
 #'   the archive was downloaded (UTC, if recorded). Returned invisibly when the
@@ -8,7 +38,7 @@
 #' @examples
 #' inmet_cache_status(dest_dir = file.path(tempdir(), "rmet"))
 #' @export
-inmet_cache_status <- function(dest_dir = tools::R_user_dir("rmet", "cache")) {
+inmet_cache_status <- function(dest_dir = inmet_cache_dir()) {
   dest_dir <- .validate_directory(dest_dir, "dest_dir")
   files <- if (dir.exists(dest_dir)) {
     list.files(dest_dir, pattern = "^\\d{4}\\.zip(\\.part)?$", full.names = TRUE)
@@ -54,7 +84,7 @@ inmet_cache_status <- function(dest_dir = tools::R_user_dir("rmet", "cache")) {
 #' @export
 inmet_cache_clear <- function(
     years = NULL,
-    dest_dir = tools::R_user_dir("rmet", "cache"),
+    dest_dir = inmet_cache_dir(),
     ask = interactive(),
     catalog = FALSE
 ) {

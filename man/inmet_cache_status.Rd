@@ -4,10 +4,11 @@
 \alias{inmet_cache_status}
 \title{Inspect downloaded INMET archives}
 \usage{
-inmet_cache_status(dest_dir = tools::R_user_dir("rmet", "cache"))
+inmet_cache_status(dest_dir = inmet_cache_dir())
 }
 \arguments{
-\item{dest_dir}{Cache directory used by \code{\link[=inmet_download]{inmet_download()}}.}
+\item{dest_dir}{Cache directory used by \code{\link[=inmet_download]{inmet_download()}}. Defaults to
+\code{\link[=inmet_cache_dir]{inmet_cache_dir()}}.}
 }
 \value{
 A data frame with one row per cached year: archive path, size in

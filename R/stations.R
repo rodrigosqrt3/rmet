@@ -43,7 +43,7 @@ inmet_stations <- function(
     source = c("auto", "remote", "bundled"),
     refresh = FALSE,
     max_age = 30,
-    cache_dir = tools::R_user_dir("rmet", "cache"),
+    cache_dir = inmet_cache_dir(),
     quiet = FALSE
 ) {
   source <- match.arg(source)
@@ -98,7 +98,7 @@ inmet_stations <- function(
 
 .load_stations <- function(source = "auto", refresh = FALSE,
                            max_age = 30,
-                           cache_dir = tools::R_user_dir("rmet", "cache"),
+                           cache_dir = inmet_cache_dir(),
                            quiet = FALSE) {
   cache_path <- file.path(cache_dir, "stations.rds")
 
@@ -172,10 +172,8 @@ inmet_stations <- function(
     failonerror = TRUE,
     followlocation = TRUE
   )
-  response <- curl::curl_fetch_memory(
-    "https://apitempo.inmet.gov.br/estacoes/T",
-    handle = handle
-  )
+  response <- .fetch_with_retry("https://apitempo.inmet.gov.br/estacoes/T",
+                                handle, tries = 3L)
   if (response$status_code < 200L || response$status_code >= 300L) {
     stop("INMET API returned HTTP ", response$status_code, ".", call. = FALSE)
   }
@@ -265,35 +263,113 @@ inmet_stations <- function(
   stations
 }
 
-#' Find the stations closest to a location
+#' Find the stations closest to locations
 #'
-#' Ranks automatic stations by great-circle distance from a point.
+#' Ranks automatic stations by great-circle distance from one or many points,
+#' for example the centroids of municipalities.
 #'
-#' @param latitude,longitude Coordinates of the location in decimal degrees
-#'   (south and west are negative).
-#' @param n Number of stations to return.
+#' @param latitude,longitude Coordinates in decimal degrees (south and west are
+#'   negative): single numbers, or vectors of the same length for many
+#'   locations.
+#' @param n Number of stations to return for each location.
 #' @param ... Further arguments passed to [inmet_stations()], for example
 #'   `status = "Operante"` or `source = "bundled"`.
 #'
 #' @return The rows of [inmet_stations()] for the `n` nearest stations, with
-#'   an added `distance_km` column, closest first.
+#'   an added `distance_km` column, closest first. With several locations the
+#'   rows of all of them are stacked, with an added first column `location`
+#'   (the position of the point in `latitude`) and `rank`.
 #'
 #' @examples
 #' # Stations near Porto Alegre, from the bundled catalogue
 #' inmet_nearest(-30.03, -51.23, n = 3, source = "bundled")
+#'
+#' # several locations at once
+#' inmet_nearest(c(-30.03, -23.55), c(-51.23, -46.63), n = 2, source = "bundled")
+#' @seealso [inmet_stations_within()], [inmet_interpolate()]
 #' @export
 inmet_nearest <- function(latitude, longitude, n = 5L, ...) {
-  latitude <- .validate_number(latitude, "latitude", -90, 90)
-  longitude <- .validate_number(longitude, "longitude", -180, 180)
+  latitude <- .validate_coordinates(latitude, "latitude", 90)
+  longitude <- .validate_coordinates(longitude, "longitude", 180)
+  if (length(latitude) != length(longitude)) {
+    stop("`latitude` and `longitude` must have the same length.", call. = FALSE)
+  }
   n <- .validate_positive_integer(n, "n")
   stations <- inmet_stations(...)
-  stations <- stations[!is.na(stations$latitude) & !is.na(stations$longitude), , drop = FALSE]
-  stations$distance_km <- .haversine_km(latitude, longitude, stations$latitude, stations$longitude)
-  stations <- stations[order(stations$distance_km), , drop = FALSE]
-  stations <- utils::head(stations, n)
-  rownames(stations) <- NULL
-  stations
+  no_coordinates <- is.na(stations$latitude) | is.na(stations$longitude)
+  if (any(no_coordinates)) {
+    message(sum(no_coordinates), " station(s) without coordinates were ignored.")
+    stations <- stations[!no_coordinates, , drop = FALSE]
+  }
+  nearest <- lapply(seq_along(latitude), function(i) {
+    distance <- .haversine_km(latitude[[i]], longitude[[i]],
+                              stations$latitude, stations$longitude)
+    picked <- order(distance)[seq_len(min(n, length(distance)))]
+    out <- stations[picked, , drop = FALSE]
+    out$distance_km <- distance[picked]
+    out
+  })
+  if (length(nearest) == 1L) {
+    out <- nearest[[1]]
+  } else {
+    out <- do.call(rbind, nearest)
+    out <- cbind(
+      location = rep(seq_along(nearest), vapply(nearest, nrow, integer(1))),
+      rank = unlist(lapply(nearest, function(d) seq_len(nrow(d)))),
+      out
+    )
+  }
+  rownames(out) <- NULL
+  out
 }
+
+#' Stations inside an area
+#'
+#' Selects the stations whose coordinates fall inside a bounding box or a
+#' polygon.
+#'
+#' @param area Either a bounding box, a numeric vector
+#'   `c(west, south, east, north)` in decimal degrees, or an `sf`/`sfc`
+#'   polygon object (needs the suggested package sf). Polygons in another
+#'   coordinate system are transformed to WGS 84.
+#' @param ... Further arguments passed to [inmet_stations()], for example
+#'   `status = "Operante"` or `source = "bundled"`.
+#'
+#' @return The rows of [inmet_stations()] inside `area`.
+#'
+#' @examples
+#' # stations in a box around Porto Alegre
+#' inmet_stations_within(c(-52, -31, -50, -29), source = "bundled")
+#' @seealso [inmet_nearest()], [inmet_as_sf()]
+#' @export
+inmet_stations_within <- function(area, ...) {
+  stations <- inmet_stations(...)
+  stations <- stations[!is.na(stations$latitude) & !is.na(stations$longitude), ,
+                       drop = FALSE]
+  if (is.numeric(area)) {
+    if (length(area) != 4L || anyNA(area) || area[[1]] > area[[3]] || area[[2]] > area[[4]]) {
+      stop("`area` must be c(west, south, east, north) with west < east and ",
+           "south < north, or an sf polygon.", call. = FALSE)
+    }
+    inside <- stations$longitude >= area[[1]] & stations$longitude <= area[[3]] &
+      stations$latitude >= area[[2]] & stations$latitude <= area[[4]]
+  } else if (inherits(area, c("sf", "sfc"))) {
+    if (!requireNamespace("sf", quietly = TRUE)) {
+      stop("Package 'sf' is required: install.packages(\"sf\").", call. = FALSE)
+    }
+    polygon <- sf::st_union(sf::st_geometry(area))
+    polygon <- sf::st_transform(polygon, 4326)
+    points <- sf::st_as_sf(stations, coords = c("longitude", "latitude"),
+                           crs = 4326, remove = FALSE)
+    inside <- lengths(sf::st_intersects(points, polygon)) > 0L
+  } else {
+    stop("`area` must be c(west, south, east, north) or an sf polygon.", call. = FALSE)
+  }
+  out <- stations[inside, , drop = FALSE]
+  rownames(out) <- NULL
+  out
+}
+
 
 .haversine_km <- function(lat1, lon1, lat2, lon2) {
   to_rad <- pi / 180

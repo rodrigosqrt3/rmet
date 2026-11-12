@@ -60,6 +60,7 @@
 #' daily_qc <- inmet_daily(inmet_qc(rmet_example))
 #' @export
 inmet_daily <- function(x, tz = "auto", min_hours = 20L) {
+  if (.is_no_data(x)) return(data.frame())
   if (!is.data.frame(x) || !"datetime" %in% names(x) || !inherits(x$datetime, "POSIXct")) {
     stop("`x` must be a data frame with a POSIXct `datetime` column, as returned by ",
          "inmet_read().", call. = FALSE)
@@ -129,7 +130,7 @@ inmet_daily <- function(x, tz = "auto", min_hours = 20L) {
   ord <- order(out$station_code %||% rep(NA, n_groups), out$date)
   out <- out[ord, , drop = FALSE]
   rownames(out) <- NULL
-  out
+  .as_rmet(out, "rmet_daily")
 }
 
 # Time zone of every row: one fixed zone, or each station's own zone when

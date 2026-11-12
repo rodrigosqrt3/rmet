@@ -1,7 +1,7 @@
 Package: rmet
 Type: Package
 Title: Download and Read Brazilian Meteorological Data from INMET
-Version: 0.3.0
+Version: 0.4.0
 Authors@R: person("Rodrigo Fonseca", "Villa",
                   email = "rodrigo03.villa@gmail.com",
                   role = c("aut", "cre"),
@@ -35,6 +35,7 @@ Suggests:
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,
-    sf
+    sf,
+    withr
 VignetteBuilder: knitr
 Config/testthat/edition: 3

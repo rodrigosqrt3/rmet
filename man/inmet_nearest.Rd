@@ -2,27 +2,37 @@
 % Please edit documentation in R/stations.R
 \name{inmet_nearest}
 \alias{inmet_nearest}
-\title{Find the stations closest to a location}
+\title{Find the stations closest to locations}
 \usage{
 inmet_nearest(latitude, longitude, n = 5L, ...)
 }
 \arguments{
-\item{latitude, longitude}{Coordinates of the location in decimal degrees
-(south and west are negative).}
+\item{latitude, longitude}{Coordinates in decimal degrees (south and west are
+negative): single numbers, or vectors of the same length for many
+locations.}
 
-\item{n}{Number of stations to return.}
+\item{n}{Number of stations to return for each location.}
 
 \item{...}{Further arguments passed to \code{\link[=inmet_stations]{inmet_stations()}}, for example
 \code{status = "Operante"} or \code{source = "bundled"}.}
 }
 \value{
 The rows of \code{\link[=inmet_stations]{inmet_stations()}} for the \code{n} nearest stations, with
-an added \code{distance_km} column, closest first.
+an added \code{distance_km} column, closest first. With several locations the
+rows of all of them are stacked, with an added first column \code{location}
+(the position of the point in \code{latitude}) and \code{rank}.
 }
 \description{
-Ranks automatic stations by great-circle distance from a point.
+Ranks automatic stations by great-circle distance from one or many points,
+for example the centroids of municipalities.
 }
 \examples{
 # Stations near Porto Alegre, from the bundled catalogue
 inmet_nearest(-30.03, -51.23, n = 3, source = "bundled")
+
+# several locations at once
+inmet_nearest(c(-30.03, -23.55), c(-51.23, -46.63), n = 2, source = "bundled")
+}
+\seealso{
+\code{\link[=inmet_stations_within]{inmet_stations_within()}}, \code{\link[=inmet_interpolate]{inmet_interpolate()}}
 }

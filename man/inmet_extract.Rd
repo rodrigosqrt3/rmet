@@ -6,7 +6,7 @@
 \usage{
 inmet_extract(
   years,
-  dest_dir = tools::R_user_dir("rmet", "cache"),
+  dest_dir = inmet_cache_dir(),
   out_dir = file.path(dest_dir, "csv"),
   stations = NULL,
   overwrite = FALSE,

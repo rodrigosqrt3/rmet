@@ -207,7 +207,7 @@ test_that("station codes with four to six characters are recognized", {
 })
 
 test_that("2400 UTC rolls over to the next day", {
-  value <- rmet:::.parse_inmet_datetime("2020-01-01", "2400 UTC", "UTC")
+  value <- parse_fixture("2020-01-01", "2400 UTC")$datetime
   expect_equal(format(value, tz = "UTC"), "2020-01-02")
 })
 
@@ -247,7 +247,7 @@ test_that("inmet_read warns when a file cannot be read from the archive", {
   create_mock_inmet_data(td, year = 2020)
 
   local_mocked_bindings(
-    .read_entry_lines = function(...) stop("simulated extract failure"),
+    .read_entry_bytes = function(...) stop("simulated extract failure"),
     .package = "rmet"
   )
   expect_warning(
@@ -267,8 +267,9 @@ test_that("entries that cannot be opened directly are extracted instead", {
   dir.create(work)
 
   local_mocked_bindings(unz = function(...) stop("cannot open"), .package = "base")
-  lines <- rmet:::.read_entry_lines(zip_path, entry, work)
-  expect_true(any(grepl("A801", lines)))
+  size <- utils::unzip(zip_path, list = TRUE)$Length[[1]]
+  bytes <- rmet:::.read_entry_bytes(zip_path, entry, size, work)
+  expect_true(grepl("A801", rawToChar(bytes), useBytes = TRUE))
   expect_length(list.files(work, recursive = TRUE), 0L)
 })
 
@@ -312,20 +313,17 @@ test_that("column classification covers every canonical variable", {
 })
 
 test_that("datetime parser covers every accepted date and hour form", {
-  values <- rmet:::.parse_inmet_datetime(
+  values <- parse_fixture(
     c("2020-01-01", "2020/01/02", "03/01/2020", "04-01-2020"),
-    c("0", "0100 UTC", "02:00", "0300"),
-    "UTC"
-  )
+    c("0", "0100 UTC", "02:00", "0300")
+  )$datetime
   expect_false(anyNA(values))
   expect_equal(
     format(values, tz = "UTC", format = "%Y-%m-%d %H:%M"),
     c("2020-01-01 00:00", "2020-01-02 01:00", "2020-01-03 02:00", "2020-01-04 03:00")
   )
 
-  iso <- rmet:::.parse_inmet_datetime(
-    c("2020-01-01", "2020-01-02"), c("0000", "0100"), "UTC"
-  )
+  iso <- parse_fixture(c("2020-01-01", "2020-01-02"), c("0000", "0100"))$datetime
   expect_false(anyNA(iso))
 })
 

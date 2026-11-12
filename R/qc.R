@@ -58,6 +58,7 @@ inmet_qc <- function(
     persistence_hours = 12L,
     quiet = FALSE
 ) {
+  if (.is_no_data(x)) return(x)
   if (!is.data.frame(x) || !"datetime" %in% names(x) || !inherits(x$datetime, "POSIXct")) {
     stop("`x` must be a data frame with a POSIXct `datetime` column, as returned by ",
          "inmet_read().", call. = FALSE)

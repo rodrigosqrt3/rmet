@@ -20,7 +20,11 @@
   unique(years)
 }
 
-.current_year <- function() as.integer(format(Sys.Date(), "%Y"))
+# The empty data frame (no columns) that inmet_read() returns when nothing was
+# read. Functions that take hourly data pass it through instead of failing.
+.is_no_data <- function(x) is.data.frame(x) && ncol(x) == 0L
+
+.current_year <-function() as.integer(format(Sys.Date(), "%Y"))
 
 .validate_flag <- function(x, name) {
   if (!is.logical(x) || length(x) != 1L || is.na(x)) {
@@ -66,7 +70,16 @@
   unique(x)
 }
 
-.validate_number <- function(x, name, lower = -Inf, upper = Inf) {
+.validate_coordinates <- function(x, name, limit) {
+  if (!is.numeric(x) || !length(x) || anyNA(x) || any(!is.finite(x)) ||
+      any(abs(x) > limit)) {
+    stop("`", name, "` must be numeric values between ", -limit, " and ", limit, ".",
+         call. = FALSE)
+  }
+  as.numeric(x)
+}
+
+.validate_number <-function(x, name, lower = -Inf, upper = Inf) {
   if (!is.numeric(x) || length(x) != 1L || is.na(x) || !is.finite(x) ||
       x < lower || x > upper) {
     stop("`", name, "` must be a single number between ", lower, " and ", upper, ".",

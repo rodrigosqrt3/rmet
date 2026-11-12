@@ -5,7 +5,8 @@
 #'
 #' @param years Integer vector of years to download. Archives start in 2000.
 #'   Defaults to the current year.
-#' @param dest_dir Cache directory. It is created when necessary.
+#' @param dest_dir Cache directory, [inmet_cache_dir()] by default. It is
+#'   created when necessary.
 #' @param max_tries Maximum attempts per year.
 #' @param quiet Suppress progress messages.
 #' @param force Download again even when a valid archive is cached.
@@ -36,7 +37,7 @@
 #' @export
 inmet_download <- function(
     years = .current_year(),
-    dest_dir = tools::R_user_dir("rmet", "cache"),
+    dest_dir = inmet_cache_dir(),
     max_tries = 15L,
     quiet = FALSE,
     force = FALSE,
@@ -230,6 +231,18 @@ inmet_download <- function(
   file.rename(tmp, path)
 }
 
+# In-memory request that is tried again after a short pause when it fails.
+# The error of the last attempt is raised when every attempt fails.
+.fetch_with_retry <- function(url, handle, tries = 3L, wait = 1) {
+  for (attempt in seq_len(tries)) {
+    response <- tryCatch(curl::curl_fetch_memory(url, handle = handle),
+                         error = function(e) e)
+    if (!inherits(response, "error")) return(response)
+    if (attempt < tries) Sys.sleep(wait * attempt)
+  }
+  stop(response)
+}
+
 # Server metadata of an archive from a HEAD request; NULL when unavailable.
 .remote_metadata <- function(year) {
   handle <- curl::new_handle()
@@ -237,7 +250,7 @@ inmet_download <- function(
     handle, nobody = TRUE, useragent = .rmet_user_agent(),
     connecttimeout = 20L, timeout = 30L, followlocation = TRUE, failonerror = TRUE
   )
-  response <- tryCatch(curl::curl_fetch_memory(.archive_url(year), handle = handle),
+  response <- tryCatch(.fetch_with_retry(.archive_url(year), handle, tries = 3L),
                        error = function(e) NULL)
   if (is.null(response)) return(NULL)
   headers <- .response_headers(response)

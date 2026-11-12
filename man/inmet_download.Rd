@@ -6,7 +6,7 @@
 \usage{
 inmet_download(
   years = .current_year(),
-  dest_dir = tools::R_user_dir("rmet", "cache"),
+  dest_dir = inmet_cache_dir(),
   max_tries = 15L,
   quiet = FALSE,
   force = FALSE,
@@ -17,7 +17,8 @@ inmet_download(
 \item{years}{Integer vector of years to download. Archives start in 2000.
 Defaults to the current year.}
 
-\item{dest_dir}{Cache directory. It is created when necessary.}
+\item{dest_dir}{Cache directory, \code{\link[=inmet_cache_dir]{inmet_cache_dir()}} by default. It is
+created when necessary.}
 
 \item{max_tries}{Maximum attempts per year.}
 

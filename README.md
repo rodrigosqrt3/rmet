@@ -39,6 +39,9 @@ weather <- inmet_get(years = 2022:2024, stations = "A801")
 weather <- inmet_qc(weather)
 inmet_completeness(weather)
 daily <- inmet_daily(weather)
+
+# monthly values and reference evapotranspiration
+monthly <- inmet_monthly(inmet_et0(daily))
 ```
 
 Timestamps are returned in UTC, as in the source files, and mark the end of
@@ -52,7 +55,17 @@ when enough hours are available.
 |---|---|
 | `inmet_get()` | Download (if needed) and read hourly data in one call. |
 | `inmet_daily()` | Daily summaries per station and local day. |
+| `inmet_monthly()` | Monthly summaries from daily data. |
+| `inmet_et0()`, `inmet_design_et0()` | Reference evapotranspiration (Penman-Monteith or Hargreaves) and its design value. |
+| `inmet_pet_thornthwaite()`, `inmet_water_balance()` | Monthly potential evapotranspiration and soil water balance. |
+| `inmet_indices()`, `inmet_spi()` | Climate indices and the Standardized Precipitation Index. |
+| `inmet_normals()`, `inmet_anomaly()` | Climatological normals and anomalies. |
+| `inmet_fill()` | Fill short gaps, always marked. |
+| `inmet_interpolate()` | Estimate a variable at other locations from the stations. |
+| `inmet_stations_within()` | Stations inside a box or polygon. |
+| `inmet_derive()` | Vapour pressure deficit, wind components and heat index. |
 | `inmet_qc()` | Flag implausible hourly values. |
+| `inmet_availability()` | Stations and periods present in the cached archives. |
 | `inmet_completeness()` | Percentage of valid hours per station and month or year. |
 | `inmet_stations()` | Search the official station catalogue. |
 | `inmet_nearest()` | Find the stations closest to a location. |
@@ -61,7 +74,7 @@ when enough hours are available.
 | `inmet_download()` | Download, validate and update annual ZIP archives. |
 | `inmet_read()` | Read cached archives into a data frame. |
 | `inmet_extract()` | Extract the original CSV files. |
-| `inmet_cache_status()`, `inmet_cache_clear()` | Manage the cache. |
+| `inmet_cache_status()`, `inmet_cache_clear()`, `inmet_cache_dir()` | Manage the cache; set its location with `options(rmet.cache_dir = )`. |
 
 ## How it works
 

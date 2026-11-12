@@ -1,3 +1,69 @@
+# rmet 0.4.0
+
+## New features
+
+* `inmet_monthly()` aggregates `inmet_daily()` output into monthly values per
+  station (mean and absolute extremes of temperature, precipitation and rain
+  days, humidity, wind, radiation), with a `min_days` completeness rule.
+* `inmet_et0()` adds the FAO-56 Penman-Monteith reference evapotranspiration
+  (`et0_mm`) to daily data; it reproduces the FAO-56 worked example 18. With
+  `method = "hargreaves"` it needs only temperature, and
+  `estimate_radiation = TRUE` fills missing radiation from the temperature
+  range. `inmet_design_et0()` gives the design value (a percentile, by default
+  0.8) per group.
+* `inmet_pet_thornthwaite()` adds monthly potential evapotranspiration from
+  temperature, and `inmet_water_balance()` computes the Thornthwaite-Mather
+  soil water balance (storage, actual evapotranspiration, deficit and excess).
+* `inmet_fill()` fills short gaps of hourly or daily data by linear
+  interpolation and the rest with the typical value of the day of the year,
+  marking every filled value in `<variable>_filled`. Rainfall and wind
+  direction cannot be filled.
+* `inmet_indices()` computes yearly or monthly climate indices from daily data
+  (ETCCDI-style temperature and precipitation indices, dry and wet spells,
+  growing degree days), `inmet_spi()` the Standardized Precipitation Index, and
+  `inmet_normals()` and `inmet_anomaly()` climatological normals and
+  anomalies.
+* `inmet_nearest()` accepts many locations at once (for example, municipality
+  centroids), `inmet_stations_within()` selects the stations inside a
+  bounding box or an sf polygon, and `inmet_interpolate()` estimates a
+  variable at other locations by inverse-distance weighting.
+* `plot()` draws `rmet_hourly`, `rmet_daily` and `rmet_monthly` data, and
+  `inmet_convert_radiation()` converts between radiation units.
+* `inmet_derive()` adds vapour pressure, vapour pressure deficit, wind
+  components (`wind_u_ms`, `wind_v_ms`) and the heat index to hourly data,
+  ignoring values flagged by `inmet_qc()`.
+* `inmet_availability()` lists the stations and periods in the cached
+  archives from the file names alone, without reading any data.
+* `inmet_cache_dir()` gives the default cache directory, which can now be
+  changed for a whole session with `options(rmet.cache_dir = )` or the
+  environment variable `RMET_CACHE_DIR`. All `dest_dir` and `cache_dir`
+  arguments use it by default.
+
+* The results of `inmet_read()`, `inmet_get()`, `inmet_daily()` and
+  `inmet_monthly()` have the classes `rmet_hourly`, `rmet_daily` and
+  `rmet_monthly` (all also `rmet_data` and `data.frame`), with a compact
+  `print()`, a `summary()` per station and `as.data.frame()`. They remain
+  ordinary data frames, and the example dataset has the new class.
+* New vignette: "Monthly Values, Evapotranspiration and Derived Variables".
+
+## Improvements
+
+* `inmet_daily()`, `inmet_qc()` and `inmet_completeness()` return an empty
+  result for the empty data frame that `inmet_read()` and `inmet_get()` give
+  when no data is found, instead of failing with a message about `datetime`.
+* The requests for the station catalogue and for the server version of an
+  archive are tried up to three times before giving up.
+* `inmet_nearest()` reports stations without coordinates that it ignores.
+
+## Performance
+
+* The data rows of the station files are now parsed by compiled C code
+  (without new dependencies) from the raw bytes read from the archive. Reading
+  a full year (567 files, 4.2 million rows) takes 21 s instead of 134 s, and 120
+  stations take 4.8 s instead of 22 s, with identical results: the new
+  parser was compared with the previous one on 125 real files from
+  every kind of year (2000 to 2026), 853,000 rows, and agrees exactly.
+
 # rmet 0.3.0
 
 ## Important corrections

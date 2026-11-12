@@ -7,7 +7,7 @@
 inmet_read(
   years,
   stations = NULL,
-  dest_dir = tools::R_user_dir("rmet", "cache"),
+  dest_dir = inmet_cache_dir(),
   tz = "UTC",
   variables = NULL,
   start_date = NULL,

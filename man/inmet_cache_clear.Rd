@@ -6,7 +6,7 @@
 \usage{
 inmet_cache_clear(
   years = NULL,
-  dest_dir = tools::R_user_dir("rmet", "cache"),
+  dest_dir = inmet_cache_dir(),
   ask = interactive(),
   catalog = FALSE
 )
