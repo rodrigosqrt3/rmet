@@ -87,9 +87,23 @@
     rawToChar(line)
   }, character(1))
 }
+
+# Parses a file and applies the filters (see .filter_entry()). Used for
+# direct parsing of files and lines; inmet_read() parses and filters
+# separately so that the parsed data can be cached.
 .parse_inmet_raw <- function(bytes, tz, variables = NULL, dt_start = NULL,
                              dt_end = NULL, drop_empty = TRUE,
                              fallback_code = NA_character_) {
+  .filter_entry(
+    .parse_inmet_all(bytes, fallback_code), tz, variables,
+    list(start = dt_start, end = dt_end), drop_empty
+  )
+}
+
+# Every row and column of a file, with UTC timestamps (NULL if it has no data
+# rows). Rows in which every measurement is missing, and rows with an invalid
+# timestamp (NA), are kept.
+.parse_inmet_all <- function(bytes, fallback_code = NA_character_) {
   head_size <- min(length(bytes), .header_bytes)
   newlines <- which(bytes[seq_len(head_size)] == as.raw(0x0a))
   head_lines <- .decode_lines(.header_lines(bytes, newlines))
@@ -112,29 +126,11 @@
   offset <- if (header_row <= length(newlines)) newlines[[header_row]] else length(bytes)
   parsed <- .Call(C_parse_inmet_body, bytes, as.integer(offset), length(raw_names),
                   keep[[date_col]], keep[[hour_col]], as.integer(keep[measure_cols]))
-  if (!length(parsed$day)) return(NULL)
-  values <- parsed$values
-
-  rows <- seq_along(parsed$day)
-  if (drop_empty && length(measure_cols)) {
-    rows <- which(colSums(!is.na(values)) > 0L)
-    if (!length(rows)) return(NULL)
-  }
+  n <- length(parsed$day)
+  if (!n) return(NULL)
 
   # dates in days and hours in seconds add up to UTC instants (2400 is 00:00
   # of the next day)
-  datetime <- .POSIXct(parsed$day[rows] * 86400 + parsed$seconds[rows], tz = tz)
-  invalid <- sum(is.na(datetime))
-  if (invalid) warning(invalid, " row(s) have an invalid timestamp.", call. = FALSE)
-
-  in_bounds <- rep(TRUE, length(rows))
-  if (!is.null(dt_start)) in_bounds <- in_bounds & !is.na(datetime) & datetime >= dt_start
-  if (!is.null(dt_end)) in_bounds <- in_bounds & !is.na(datetime) & datetime <= dt_end
-  if (!any(in_bounds)) return(NULL)
-  rows <- rows[in_bounds]
-  datetime <- datetime[in_bounds]
-
-  n <- length(rows)
   columns <- list(
     station_code = rep(metadata$code, n),
     station_name = rep(metadata$name, n),
@@ -143,16 +139,42 @@
     latitude = rep(metadata$latitude, n),
     longitude = rep(metadata$longitude, n),
     elevation = rep(metadata$elevation, n),
-    datetime = datetime
+    datetime = .POSIXct(parsed$day * 86400 + parsed$seconds, tz = "UTC")
   )
   measure_names <- col_names[measure_cols]
-  for (j in seq_along(measure_cols)) {
-    if (is.null(variables) || measure_names[[j]] %in% variables) {
-      columns[[measure_names[[j]]]] <- values[j, rows]
-    }
-  }
+  for (j in seq_along(measure_cols)) columns[[measure_names[[j]]]] <- parsed$values[j, ]
   .new_data_frame(columns, n)
 }
+
+# Applies what the user asked for to the rows of one file (NULL if nothing is
+# left): drop hours without any measurement, warn about invalid timestamps,
+# keep the date limits (interpreted in `tz`), show the time in `tz` and keep
+# only some measurement columns.
+.filter_entry <- function(data, tz, variables = NULL, bounds = list(),
+                          drop_empty = TRUE) {
+  if (is.null(data)) return(NULL)
+  measure <- setdiff(names(data), .inmet_id_columns())
+  keep <- rep(TRUE, nrow(data))
+  if (drop_empty && length(measure)) {
+    present <- Reduce(`|`, lapply(unclass(data)[measure], function(v) !is.na(v)))
+    keep <- present
+    if (!any(keep)) return(NULL)
+  }
+
+  datetime <- data$datetime
+  attr(datetime, "tzone") <- tz
+  invalid <- sum(is.na(datetime[keep]))
+  if (invalid) warning(invalid, " row(s) have an invalid timestamp.", call. = FALSE)
+  if (!is.null(bounds$start)) keep <- keep & !is.na(datetime) & datetime >= bounds$start
+  if (!is.null(bounds$end)) keep <- keep & !is.na(datetime) & datetime <= bounds$end
+  if (!any(keep)) return(NULL)
+
+  data$datetime <- datetime
+  if (!is.null(variables)) data <- data[setdiff(names(data), setdiff(measure, variables))]
+  if (!all(keep)) data <- data[keep, , drop = FALSE]
+  data
+}
+
 
 .find_column_header <- function(lines) {
   scan <- .normalize_text(lines[seq_len(min(length(lines), 30L))])

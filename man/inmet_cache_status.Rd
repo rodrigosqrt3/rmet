@@ -13,8 +13,9 @@ inmet_cache_status(dest_dir = inmet_cache_dir())
 \value{
 A data frame with one row per cached year: archive path, size in
 MB, whether the ZIP is valid, whether a partial download exists, and when
-the archive was downloaded (UTC, if recorded). Returned invisibly when the
-cache is empty.
+the archive was downloaded (UTC, if recorded), and the size in MB of the
+parsed files kept by \code{inmet_read(cache = TRUE)} (\code{parsed_mb}). Returned
+invisibly when the cache is empty.
 }
 \description{
 Inspect downloaded INMET archives
